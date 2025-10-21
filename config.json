@@ -1,0 +1,23 @@
+{
+  "run": {
+    "alg": "aco",
+    "obj": "sphere",
+    "dim": 2,
+    "bounds": "-5,5",
+    "iters": 30,
+    "pop": 30,
+    "seed": null,
+    "animate": true,
+    "plot": true,
+    "show_heatmap": true,
+    "heatmap_res": 200,
+    "heatmap_levels": 30,
+    "cmap": "viridis",
+    "save_path": null
+  },
+  "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null },
+  "ga":  { "pc": 0.9, "pm": 0.05, "elitism": 1, "tournament_k": 3, "blx_alpha": 0.3, "sigma_frac": 0.1 },
+  "de":  { "F": 0.5, "CR": 0.9, "strategy": "rand/1/bin" },
+  "aco": { "k": 50, "q": 0.3, "xi": 0.85 }
+  
+}
