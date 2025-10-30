@@ -67,6 +67,44 @@ def camel3(x):
     a, b = x[..., 0], x[..., 1]
     return 2*a*a - 1.05*a**4 + (a**6)/6 + a*b + b*b
 
+
+
+def griewank(x):
+
+    x = np.asarray(x)
+    n = x.shape[-1]
+    
+    sum_term = np.sum(x**2 / 4000, axis=-1)
+    
+    # Crea un array [sqrt(1), sqrt(2), ..., sqrt(n)]
+    i = np.arange(1, n + 1)
+    cos_term = np.cos(x / np.sqrt(i))
+    prod_term = np.prod(cos_term, axis=-1)
+    
+    return sum_term - prod_term + 1
+
+
+def schwefel(x):
+
+    x = np.asarray(x)
+    n = x.shape[-1]
+    
+    sum_term = np.sum(x * np.sin(np.sqrt(np.abs(x))), axis=-1)
+    
+    return 418.9829 * n - sum_term
+
+
+def easom(x):
+
+    x = np.asarray(x)
+    a = x[..., 0]
+    b = x[..., 1]
+    
+    term1 = -np.cos(a) * np.cos(b)
+    term2 = np.exp(-((a - np.pi)**2 + (b - np.pi)**2))
+    
+    return term1 * term2
+
 # Diccionario para que main.py encuentre las funciones por su nombre
 OBJETIVOS_REGISTRADOS: dict[str, Callable] = {
     "sphere": sphere,
@@ -77,4 +115,7 @@ OBJETIVOS_REGISTRADOS: dict[str, Callable] = {
     "beale": beale,
     "booth": booth,
     "camel3": camel3,
+    "griewank": griewank,
+    "schwefel": schwefel,
+    "easom": easom,
 }

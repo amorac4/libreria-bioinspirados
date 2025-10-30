@@ -1,26 +1,20 @@
 {
   "run": {
-    "alg": "de",
-    "obj": "rastrigin",
+    "alg": "bat",          
+    "obj": "ackley",
     "dim": 2,
-    "bounds": "-5,5",
-    "iters": 60,
-    "pop": 30,
+    "bounds": "-30,30",
+    "iters": 50,
+    "pop": 20,
     "seed": null,
     "animate": true,
     "plot": true,
-    "show_heatmap": true,
-    "heatmap_res": 200,
-    "heatmap_levels": 30,
-    "cmap": "viridis",
-    "save_path": null
+    "show_heatmap": true
   },
-  
+
   "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null },
   "ga":  { "pc": 0.9, "pm": 0.05, "elitism": 1, "tournament_k": 3, "blx_alpha": 0.3, "sigma_frac": 0.1 },
-  "de":  { "F": 0.5, "CR": 0.9},
-  "aco": { "k": 50, "q": 0.3, "xi": 0.85 }
-  
+  "de":  { "F": 0.5, "CR": 0.9 },
+  "aco": { "k": 50, "q": 0.3, "xi": 0.85 },
+  "bat": { "A": 0.95,"r": 0.1, "Qmin": 0.0, "Qmax": 2.0, "alpha": 0.97, "gamma": 0.1, "sigma": 0.05}
 }
-
-
