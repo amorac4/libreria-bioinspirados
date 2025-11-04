@@ -52,6 +52,9 @@ def rosenbrock(x, a=1, b=100):
     
     return res.item() if is_1d else res
 
+#def rosenbrock(x, y, a=1, b=100):
+    return (a - x) ** 2 + b * (y - x ** 2) ** 2
+
 def beale(x):
     x = np.asarray(x)
     a, b = x[..., 0], x[..., 1]
