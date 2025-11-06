@@ -2,9 +2,9 @@
   "run": {
     "alg": "c_so",
     "obj": "rosenbrock",
-    "dim": 2,
+    "dim": 16,
     "bounds": "-5,5",
-    "iters": 1000,
+    "iters": 200,
     "pop": 20,
     "seed": null,
     "animate": true,
