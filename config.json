@@ -1,11 +1,11 @@
 {
   "run": {
-    "alg": "cso",
-    "obj": "himmelblau",
+    "alg": "c_so",
+    "obj": "rosenbrock",
     "dim": 2,
     "bounds": "-5,5",
-    "iters": 50,
-    "pop": 10,
+    "iters": 1000,
+    "pop": 20,
     "seed": null,
     "animate": true,
     "plot": true,
@@ -17,6 +17,7 @@
   "de":  { "F": 0.5, "CR": 0.9 },
   "aco": { "k": 50, "q": 0.3, "xi": 0.85 },
   "bat": { "A": 0.95,"r": 0.1, "Qmin": 0.0, "Qmax": 2.0, "alpha": 0.97, "gamma": 0.1, "sigma": 0.05 },
-  "cso": { "mix_rate": 0.05, "seeking_memory_pool": 5, "seeking_range_factor": 0.1, "velocity_limit_factor": 0.03 } 
+  "cso": { "mix_rate": 0.5, "seeking_memory_pool": 5, "seeking_range_factor": 0.06, "velocity_limit_factor": 0.03 },
+  "c_so": { "pa": 0.25, "beta": 1.5 } 
 
 }
