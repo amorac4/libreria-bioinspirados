@@ -12,7 +12,7 @@ from utils import clamp_vec_np, rand_vec_in_bounds_np, init_history
 def _get_levy_step(rng: np.random.Generator, beta: float, size: tuple[int, ...]) -> np.ndarray:
     """ Genera pasos de Lévy vectorizados """
     
-    # Calcular sigmas de la referencia [1] en prueba_cso.py
+    # Calcular sigmas 
     num = gamma(1 + beta) * np.sin(np.pi * beta / 2)
     den = gamma((1 + beta) / 2) * beta * (2**((beta - 1) / 2))
     sigma_u = (num / den)**(1 / beta)
@@ -30,7 +30,7 @@ def c_so(objective: Callable, bounds: np.ndarray,
        max_iters: int, pop_size: int, seed: int | None = None,
        pa: float = 0.25,                 # Probabilidad de abandono de nido
        beta: float = 1.5,                # Parámetro de vuelo de Lévy
-       alpha: float = 0.01,              # Factor de escala del paso (en tu prueba_cso.py es 0.01)
+       alpha: float = 0.01,              # Factor de escala del paso de Lévy
        log_positions: bool = False, log_every: int = 1):
    
     # 1. Inicialización
@@ -64,11 +64,9 @@ def c_so(objective: Callable, bounds: np.ndarray,
         
         # Calcular el tamaño del paso (diferente para cada nido)
         # En CS, el paso se escala con la diferencia a la *mejor* solución actual (G)
-        # Tu código usaba (X - G), vamos a mantener esa lógica.
         step_size = alpha * levy_steps * (X - G) #
         
         # Generar nuevas posiciones y evaluarlas
-        # Usamos rng.normal(size=...) para el factor aleatorio simple (randn)
         X_new = X + rng.normal(size=(pop_size, dim)) * step_size 
         clamp_vec_np(X_new, bounds, in_place=True) #
         F_new = objective(X_new)

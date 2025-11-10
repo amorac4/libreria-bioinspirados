@@ -69,7 +69,6 @@ def cso(objective: Callable, bounds: np.ndarray,
             reshaped_fitness = flat_fitness.reshape(num_seeking_cats, seeking_memory_pool) 
             best_candidate_indices_per_cat = np.argmin(reshaped_fitness, axis=1) # Índices de los mejores candidatos por gato
             
-            # ========== INICIO DE LA CORRECCIÓN ==========
             
             # Obtener el fitness y la posición de los mejores candidatos encontrados
             best_new_fitness = reshaped_fitness[np.arange(num_seeking_cats), best_candidate_indices_per_cat]
@@ -86,7 +85,6 @@ def cso(objective: Callable, bounds: np.ndarray,
                 X[update_indices_global] = best_new_positions[update_indices_local]
                 F[update_indices_global] = best_new_fitness[update_indices_local]
 
-            # ========== FIN DE LA CORRECCIÓN ==========
 
 
         # --- MODO DE RASTREO (Tracing Mode) ---
