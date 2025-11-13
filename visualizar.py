@@ -1,8 +1,8 @@
-# visualizar.py
 from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from mpl_toolkits.mplot3d import Axes3D
 
 # -----------------------------
 #  Curva de convergencia (plot)
@@ -190,5 +190,116 @@ def animate_swarm_heatmap(history: dict[str, list],
     plt.tight_layout()
     if save_path:
         ani.save(save_path)
+    else:
+        plt.show()
+# --------------------------------
+
+# ------------------------------------------
+#  Animación de Enjambre 3D (Superficie)
+# ------------------------------------------
+def animate_swarm_3d(history: dict[str, list],
+                       objective: callable,
+                       bounds: np.ndarray,
+                       title: str = "Animación de Enjambre 3D",
+                       res: int = 100,
+                       cmap: str = "viridis",
+                       save_path: str | None = None):
+    """
+    Anima el movimiento del enjambre sobre una superficie 3D de la función objetivo.
+    (Solo funciona para problemas 2D).
+    """
+    
+    pos_hist = history.get("pos", [])
+    gbest_hist = history.get("gbest_hist", [])
+    if not pos_hist:
+        print("Error: No hay 'pos_hist' en el historial. ¿log_positions=True?")
+        return
+
+    # --- 1. Preparar datos de la Superficie 3D ---
+    xlo, xhi = bounds[0]
+    ylo, yhi = bounds[1]
+    
+    # Crea la malla (mesh)
+    X = np.linspace(xlo, xhi, res)
+    Y = np.linspace(ylo, yhi, res)
+    X, Y = np.meshgrid(X, Y)
+    
+    # Prepara los puntos para la evaluación
+    # (res*res, 2)
+    xy_pairs = np.vstack([X.ravel(), Y.ravel()]).T
+    
+    # Evalúa todos los puntos de la malla
+    Z = objective(xy_pairs).reshape(X.shape)
+    
+    z_min = Z.min()
+    z_max = Z.max()
+
+    # --- 2. Configurar la Figura 3D ---
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Dibuja la superficie de la función objetivo
+    ax.plot_surface(X, Y, Z, cmap=cmap, alpha=0.6, antialiased=True, rcount=res, ccount=res)
+    ax.set_xlim(xlo, xhi); ax.set_ylim(ylo, yhi); ax.set_zlim(z_min, z_max)
+    ax.set_title(title); ax.set_xlabel("x1"); ax.set_ylabel("x2"); ax.set_zlabel("Fitness")
+    
+    # --- 3. Configurar los Puntos de Animación ---
+    
+    # Inicializa el scatter plot 3D para las partículas
+    # Nota: ax.scatter 3D devuelve un Path3DCollection
+    scat = ax.scatter([], [], [], s=20, c="red", edgecolors="black", depthshade=True)
+    
+    # Inicializa el punto para el Mejor Global (Gbest)
+    gdot, = ax.plot([], [], [], marker='*', linestyle="None", markersize=12, color="cyan", markeredgecolor="black")
+    
+    # --- 4. Definir Funciones de Animación ---
+    
+    def init():
+        # Para 3D, 'set_data_3d' es mejor para plots, y _offsets3d para scatter
+        scat._offsets3d = ([], [], [])
+        gdot.set_data_3d([], [], [])
+        return scat, gdot
+
+    def update(frame):
+        # Obtiene las posiciones (x, y) del historial
+        pts_2d = pos_hist[frame] # (pop_size, 2)
+        
+        # Calcula el 'Z' (fitness) para cada partícula
+        # para que se dibujen 'sobre' la superficie
+        pts_z = objective(pts_2d) # (pop_size,)
+        
+        # Actualiza el scatter 3D
+        scat._offsets3d = (pts_2d[:, 0], pts_2d[:, 1], pts_z)
+        
+        if gbest_hist:
+            # Obtiene el Gbest (x, y)
+            g_pos_2d = gbest_hist[frame] # (2,)
+            
+            # Calcula su 'Z' (fitness)
+            g_pos_z = objective(g_pos_2d) # (,)
+            
+            # Actualiza el punto Gbest
+            gdot.set_data_3d([g_pos_2d[0]], [g_pos_2d[1]], [g_pos_z])
+            
+        return scat, gdot
+
+    # --- 5. Crear y Mostrar Animación ---
+    
+    # Ajusta el intervalo si hay muchos frames
+    interval = max(20, 3000 // len(pos_hist))
+    
+    ani = FuncAnimation(
+        fig,
+        update,
+        frames=len(pos_hist),
+        init_func=init,
+        blit=True,
+        interval=interval,
+    )
+
+    if save_path:
+        print(f"Guardando animación 3D en {save_path}...")
+        ani.save(save_path, writer='ffmpeg', fps=30)
+        print("Guardado.")
     else:
         plt.show()

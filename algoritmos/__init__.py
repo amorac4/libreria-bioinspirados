@@ -6,6 +6,7 @@ from .aco import aco
 from .bat import bat
 from .cso import cso
 from .c_so import c_so
+from .fwa import fwa
 
 ALGORITMOS_REGISTRADOS = {
     "pso": pso,
@@ -14,7 +15,8 @@ ALGORITMOS_REGISTRADOS = {
     "aco": aco,
     "bat": bat,
     "cso": cso,
-    "c_so": c_so
+    "c_so": c_so,
+    "fwa": fwa
 }
 
 __all__ = [
@@ -25,5 +27,6 @@ __all__ = [
     "bat",
     "cso",
     "c_so",
+    "fwa",
     "ALGORITMOS_REGISTRADOS"
 ]

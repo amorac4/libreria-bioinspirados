@@ -119,6 +119,4 @@ def aco(objective: Callable, bounds: np.ndarray,
         if log_positions and dim == 2 and (it % log_every == 0):
             hist["pos"].append(new_solutions.copy()) # Guarda las posiciones de las hormigas
 
-    # 3. Fin
-    # --------
     return best_x, best_f, hist

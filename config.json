@@ -1,16 +1,21 @@
+
 {
   "run": {
-    "alg": "c_so",
-
-    "obj": "rastrigin",
+    "alg": "cso",
+    "obj": "sphere, rastrigin, ackley, himmelblau, michaelwicz2d, rosenbrock",
     "dim": 2,
-    "bounds": "-10,10",
+    "bounds": "-5,5",
     "iters": 100,
-    "pop": 10,
+    "pop": 20,
     "seed": null,
     "animate": true,
     "plot": true,
-    "show_heatmap": true
+    "animation_type": "2d",
+    "show_heatmap": true,
+    "heatmap_res": 200,
+    "heatmap_levels": 30,
+    "cmap": "viridis",
+    "save_path": null
   },
 
   "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null },
@@ -18,7 +23,10 @@
   "de":  { "F": 0.5, "CR": 0.9 },
   "aco": { "k": 50, "q": 0.3, "xi": 0.85 },
   "bat": { "A": 0.95,"r": 0.1, "Qmin": 0.0, "Qmax": 2.0, "alpha": 0.97, "gamma": 0.1, "sigma": 0.05 },
-  "cso": { "mix_rate": 0.2, "seeking_memory_pool": 3, "seeking_range_factor": 0.1, "velocity_limit_factor": 0.03 },
-  "c_so": { "pa": 0.50, "beta": 1.5, "alpha": 0.09 } 
+  "cso": {"mix_rate": 0.25, "smp": 5, "srd": 0.2, "cdc": 0.8, "spc": true, "velocity_limit_factor": 0.03},
+  "c_so": { "pa": 0.50, "beta": 1.5, "alpha": 0.09 },
+  "fwa": {"S_min": 5,"S_max": 30, "A_max": 40.0, "m_gauss": 5}
 
 }
+
+ 

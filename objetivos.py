@@ -70,7 +70,16 @@ def camel3(x):
     a, b = x[..., 0], x[..., 1]
     return 2*a*a - 1.05*a**4 + (a**6)/6 + a*b + b*b
 
+def michaelwicz2d(x, m=10):
 
+    x = np.asarray(x)
+    x1 = x[..., 0]
+    x2 = x[..., 1]
+    
+    term1 = np.sin(x1) * (np.sin((1 * x1**2) / np.pi))**(2*m)
+    term2 = np.sin(x2) * (np.sin((2 * x2**2) / np.pi))**(2*m)
+    
+    return -(term1 + term2)
 
 def griewank(x):
 
@@ -110,15 +119,19 @@ def easom(x):
 
 # Diccionario para que main.py encuentre las funciones por su nombre
 OBJETIVOS_REGISTRADOS: dict[str, Callable] = {
-    "sphere": sphere,
+    # Funciones N-Dimensionales
     "ackley": ackley,
+    "griewank": griewank,
     "rastrigin": rastrigin,
-    "himmelblau": himmelblau,
     "rosenbrock": rosenbrock,
+    "schwefel": schwefel,
+    "sphere": sphere,
+
+    # Funciones Fijas 2D
     "beale": beale,
     "booth": booth,
     "camel3": camel3,
-    "griewank": griewank,
-    "schwefel": schwefel,
     "easom": easom,
+    "himmelblau": himmelblau,
+    "michaelwicz2d": michaelwicz2d,
 }

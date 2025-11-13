@@ -1,3 +1,4 @@
+# algoritmos/cso.py
 from __future__ import annotations
 import numpy as np
 from typing import Callable
@@ -5,106 +6,161 @@ from typing import Callable
 from utils import clamp_vec_np, rand_vec_in_bounds_np, init_history
 
 # ==================================
-# Algoritmo de Optimización por Enjambre de Gatos (CSO)
+# Algoritmo de Optimización por Enjambre de Gatos (CSO) - (Según el Paper)
 # ==================================
 def cso(objective: Callable, bounds: np.ndarray,
         max_iters: int, pop_size: int, seed: int | None = None,
-        mix_rate: float = 0.5,           # MR: Probabilidad de estar en modo de búsqueda
-        seeking_memory_pool: int = 5,    # SMP: Número de puntos candidatos en modo de búsqueda
-        seeking_range_factor: float = 0.2, # SRC: Factor para el rango de búsqueda
-        velocity_limit_factor: float = 0.03, # VL: Factor para el límite de velocidad en modo de rastreo
+        mix_rate: float = 0.5,           # MR: Proporción de gatos en modo búsqueda
+        smp: int = 5,                    # SMP: Seeking Memory Pool (Nº de candidatos)
+        srd: float = 0.2,                # SRD: Seeking Range of Dimension (Factor de rango)
+        cdc: float = 0.8,                # CDC: Counts of Dimensions to Change (Probabilidad de mutar dim)
+        spc: bool = True,                # SPC: Self Position Considering (Considerar la pos. actual)
+        velocity_limit_factor: float = 0.03, # VL: Límite de velocidad
         log_positions: bool = False, log_every: int = 1):
-   
-    # 1. Inicialización
-    # -------------------
-    rng = np.random.default_rng(seed) # Generador de números aleatorios
-    dim = bounds.shape[0] # Dimensionalidad del problema
-    X = rand_vec_in_bounds_np(bounds, pop_size, rng) # Posiciones iniciales
-    V = np.zeros((pop_size, dim))  # Velocidades iniciales en cero
-    F = objective(X) # Fitness de cada gato
-    g_idx = np.argmin(F) # Índice del mejor gato
-    G = X[g_idx].copy() # Mejor posición global
-    Gf = F[g_idx]       # Mejor fitness global
-    hist = init_history(keys=("best_f", "mean_f", "best_x", "gbest")) # Historial de la optimización
-    if log_positions and dim == 2:
-        hist["pos"] = []
     
-    # Calcular el rango total del espacio de búsqueda para definir los límites de velocidad
-    # (max_bound - min_bound) / 2
+    """
+    Implementación vectorizada de Cat Swarm Optimization (CSO)
+    basada en el paper de Chu, Tsai y Pan (2006).
+    """
+    
+    # 1. Inicialización
+    # ------------------
+    rng = np.random.default_rng(seed)
+    dim = bounds.shape[0]
+    
+    # Rango total de los límites (para SRD y VL)
     bounds_range = bounds[:, 1] - bounds[:, 0]
+    
+    # Límite de velocidad (Tracing)
     velocity_limit = bounds_range * velocity_limit_factor
+    # Rango de perturbación (Seeking)
+    seeking_range = bounds_range * srd
+    
+    # Población
+    X = rand_vec_in_bounds_np(bounds, pop_size, rng) # Posiciones
+    V = np.zeros((pop_size, dim))                    # Velocidades
+    F = objective(X)                                 # Fitness
+    
+    # Mejor Global
+    g_idx = np.argmin(F)
+    G = X[g_idx].copy()
+    Gf = F[g_idx]
 
-    # 2. Bucle principal (Iteraciones)
-    # ---------------------------------
+    # Historial
+    hist_keys = ["best_f", "mean_f", "best_x", "gbest"]
+    if log_positions:
+        hist_keys.extend(["pos", "gbest_hist"])
+    hist = init_history(keys=hist_keys)
+
+    # 2. Ciclo Principal
+    # ------------------
     for it in range(max_iters):
         
-        # Decide qué gatos están en modo de búsqueda (seeking) y cuáles en modo de rastreo (tracing)
-        # Una decisión para cada gato
-        is_seeking_mode = rng.random(pop_size) < mix_rate
+        # --- División de Modos (Determinista) ---
+        # A diferencia de la versión anterior (estocástica), esta asegura
+        # una división fija en cada iteración, lo cual es más estable.
+        num_seeking = int(pop_size * mix_rate)
+        num_tracing = pop_size - num_seeking
         
-        # --- MODO DE BÚSQUEDA (Seeking Mode) ---
-        # Los gatos "descansan" y miran a su alrededor
-        
-        seeking_cats_indices = np.where(is_seeking_mode)[0]
-        num_seeking_cats = len(seeking_cats_indices)
-        
-        if num_seeking_cats > 0:
-            current_seeking_positions = X[seeking_cats_indices] # Posiciones actuales de estos gatos
+        # Mezcla los índices para elegir gatos al azar
+        all_indices = rng.permutation(pop_size)
+        seeking_indices = all_indices[:num_seeking]
+        tracing_indices = all_indices[num_seeking:]
+
+        # --- Modo de Búsqueda (Seeking Mode) ---
+        if num_seeking > 0:
+            # Implementación vectorizada del "Seeking Mode"
             
-            # Genera múltiples candidatos para cada gato en modo de búsqueda
-            # Cada candidato se genera alrededor de la posición actual del gato
-            # El rango es un factor del rango total de los límites
-            seeking_range = bounds_range * seeking_range_factor # Vector (dim,) 
-            displacements = rng.uniform(-1, 1, (num_seeking_cats, seeking_memory_pool, dim)) * seeking_range # (num_seeking_cats, seeking_memory_pool, dim)
-            candidate_positions = current_seeking_positions[:, np.newaxis, :] + displacements 
+            # Cuántas copias nuevas generar (j)
+            j = smp
+            if spc:
+                j = smp - 1 # Se reserva un lugar para la pos. actual
             
-            # Asegura que los candidatos estén dentro de los límites
-            for j in range(num_seeking_cats):
-                clamp_vec_np(candidate_positions[j], bounds, in_place=True)
+            if j > 0:
+                # Obtiene los gatos "padre" (num_seeking, 1, dim)
+                seeking_parents = X[seeking_indices][:, np.newaxis, :]
+                
+                # Crea j copias de cada padre (num_seeking, j, dim)
+                candidate_copies = np.tile(seeking_parents, (1, j, 1))
+                
+                # --- Mutación (SRD y CDC) ---
+                # Crea perturbaciones aleatorias
+                perturbations = rng.uniform(-seeking_range, seeking_range, 
+                                            size=(num_seeking, j, dim))
+                
+                # Crea máscara de CDC: qué dimensiones SÍ mutar
+                # (Cada dimensión tiene una prob 'cdc' de ser mutada)
+                cdc_mask = rng.random((num_seeking, j, dim)) < cdc
+                
+                # Anula las perturbaciones que no pasaron el filtro CDC
+                perturbations[~cdc_mask] = 0.0
+                
+                # Aplica las mutaciones
+                candidates_mutated = candidate_copies + perturbations
+                clamp_vec_np(candidates_mutated, bounds, in_place=True)
+                
+                # Evalúa todos los candidatos (num_seeking * j)
+                candidates_flat = candidates_mutated.reshape(-1, dim)
+                candidates_fit_flat = objective(candidates_flat)
+                # Re-organiza (num_seeking, j)
+                candidates_fit = candidates_fit_flat.reshape(num_seeking, j)
+
+            # --- Selección (SPC) ---
+            parent_fit = F[seeking_indices] # Fitness de los padres (num_seeking,)
+
+            if spc:
+                # Si se considera la pos. actual (padre)
+                if j > 0:
+                    # Compara padres vs hijos
+                    all_fits = np.hstack([parent_fit[:, np.newaxis], candidates_fit])
+                    all_candidates = np.concatenate([seeking_parents, candidates_mutated], axis=1)
+                else:
+                    # Caso smp=1 y spc=True, solo se considera el padre
+                    all_fits = parent_fit[:, np.newaxis]
+                    all_candidates = seeking_parents
+            else:
+                # No se considera la pos. actual (solo los 'smp' hijos)
+                all_fits = candidates_fit
+                all_candidates = candidates_mutated
+
+            # Encuentra el mejor candidato para cada gato (índice 0 a smp)
+            best_indices = np.argmin(all_fits, axis=1) # (num_seeking,)
             
-            # Evalúa todos los candidatos
-            # Reshape para evaluar todos a la vez (num_seeking_cats * seeking_memory_pool, dim)
-            flat_candidates = candidate_positions.reshape(-1, dim) 
-            flat_fitness = objective(flat_candidates) 
-            reshaped_fitness = flat_fitness.reshape(num_seeking_cats, seeking_memory_pool) 
-            best_candidate_indices_per_cat = np.argmin(reshaped_fitness, axis=1) # Índices de los mejores candidatos por gato
+            # Obtiene el fitness y la posición del mejor candidato
+            best_new_fits = all_fits[np.arange(num_seeking), best_indices]
+            best_new_pos = all_candidates[np.arange(num_seeking), best_indices]
             
+            # --- Actualización Greedy ---
+            # Actualiza solo los gatos que encontraron una posición mejor
+            update_mask = best_new_fits < parent_fit
             
-            # Obtener el fitness y la posición de los mejores candidatos encontrados
-            best_new_fitness = reshaped_fitness[np.arange(num_seeking_cats), best_candidate_indices_per_cat]
-            best_new_positions = candidate_positions[np.arange(num_seeking_cats), best_candidate_indices_per_cat]
+            update_indices_global = seeking_indices[update_mask]
+            X[update_indices_global] = best_new_pos[update_mask]
+            F[update_indices_global] = best_new_fits[update_mask]
 
-            current_fitness = F[seeking_cats_indices]
-            improvement_mask = best_new_fitness < current_fitness
-            update_indices_local = np.where(improvement_mask)[0]
+        # --- Modo de Rastreo (Tracing Mode) ---
+        if num_tracing > 0:
+            # Esta parte ya era vectorial y correcta.
+            X_trace = X[tracing_indices]
+            V_trace = V[tracing_indices]
             
-            # Si hay gatos que mejorar, actualizar solo esos
-            if update_indices_local.size > 0:
-
-                update_indices_global = seeking_cats_indices[update_indices_local]
-                X[update_indices_global] = best_new_positions[update_indices_local]
-                F[update_indices_global] = best_new_fitness[update_indices_local]
-
-
-
-        # --- MODO DE RASTREO (Tracing Mode) ---
-        # Los gatos "cazan" y se mueven hacia el mejor global
-        
-        # Selecciona los gatos en modo de rastreo
-        tracing_cats_indices = np.where(~is_seeking_mode)[0]
-        num_tracing_cats = len(tracing_cats_indices)
-        
-        if num_tracing_cats > 0:
-
-            rand_factor = rng.random((num_tracing_cats, dim)) # Factor aleatorio para la actualización de velocidad
-            V[tracing_cats_indices] += rand_factor * (G - X[tracing_cats_indices])
-            np.clip(V[tracing_cats_indices], -velocity_limit, velocity_limit, out=V[tracing_cats_indices])  # Limita las velocidades
-            X[tracing_cats_indices] += V[tracing_cats_indices]  # Actualiza las posiciones
-            clamp_vec_np(X[tracing_cats_indices], bounds, in_place=True)  # Asegura que las posiciones estén dentro de los límites
-            F[tracing_cats_indices] = objective(X[tracing_cats_indices])  # Evalúa el fitness de estos gatos
-
+            # Actualiza velocidad (hacia G)
+            rand_factor = rng.random((num_tracing, dim))
+            V_new = V_trace + rand_factor * (G - X_trace)
+            np.clip(V_new, -velocity_limit, velocity_limit, out=V_new)
+            
+            # Actualiza posición
+            X_new = X_trace + V_new
+            clamp_vec_np(X_new, bounds, in_place=True)
+            
+            # Evalúa y actualiza
+            F_new = objective(X_new)
+            X[tracing_indices] = X_new
+            V[tracing_indices] = V_new
+            F[tracing_indices] = F_new
 
         # --- Actualizar Mejor Global ---
+        # Revisa *toda* la población después de ambos modos
         current_best_idx = np.argmin(F)
         if F[current_best_idx] < Gf:
             Gf = F[current_best_idx]
@@ -115,8 +171,10 @@ def cso(objective: Callable, bounds: np.ndarray,
         hist["mean_f"].append(np.mean(F))
         hist["best_x"].append(G.copy())
         hist["gbest"].append(G.copy())
-        if log_positions and dim == 2 and (it % log_every == 0):
-            hist["pos"].append(X.copy()) # Guarda las posiciones actuales
-
-
+        if log_positions and (it % log_every == 0):
+            hist["pos"].append(X.copy())
+            hist["gbest_hist"].append(G.copy())
+            
+    # 3. Retorno
+    # -----------
     return G, Gf, hist
