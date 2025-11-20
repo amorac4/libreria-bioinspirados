@@ -51,10 +51,7 @@ def gwo(objective: Callable, bounds: np.ndarray,
             
             if f < Alpha_score:
                 # El antiguo Alpha pasa a ser Beta, Beta a Delta...
-                # (Pero en la implementación estándar de GWO, simplemente 
-                #  verificamos contra los scores actuales para reasignar)
-                # Aquí usamos la lógica estricta de comparación:
-                
+          
                 Alpha_score = f
                 Alpha_pos = pos.copy()
                 
@@ -128,7 +125,6 @@ def gwo(objective: Callable, bounds: np.ndarray,
         fit_new = objective(X_new)
         
         # En GWO estándar, los lobos SIEMPRE se mueven.
-        # No hay selección "greedy" (como en DE) para mantener la posición vieja.
         # Los lobos siguen a los líderes incondicionalmente.
         X = X_new
         fitness = fit_new

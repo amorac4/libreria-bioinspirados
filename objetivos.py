@@ -137,19 +137,19 @@ OBJETIVOS_REGISTRADOS = {
 
 # Diccionario de Metadatos (Límites y Dimensiones Estándar)
 INFO_OBJETIVOS = {
-    # N-Dimensionales (El 'dim' es sugerido por defecto, pero puede cambiarse)
+    # N-Dimensionales 
     "sphere":      {"bounds": [-100, 100],   "default_dim": 30},
     "ackley":      {"bounds": [-32, 32],     "default_dim": 30},
     "rastrigin":   {"bounds": [-5.12, 5.12], "default_dim": 30},
     "griewank":    {"bounds": [-600, 600],   "default_dim": 30},
-    "rosenbrock":  {"bounds": [-30, 30],     "default_dim": 30}, # A veces [-5, 10] o [-2.048, 2.048]
+    "rosenbrock":  {"bounds": [-30, 30],     "default_dim": 30}, 
     "schwefel":    {"bounds": [-500, 500],   "default_dim": 30},
 
-    # 2D Fijas (El 'dim' ES FIJO, forzaremos a 2 aunque el config diga 10)
+    # 2D Fijas 
     "himmelblau":    {"bounds": [-5, 5],          "fixed_dim": 2},
     "beale":         {"bounds": [-4.5, 4.5],      "fixed_dim": 2},
     "booth":         {"bounds": [-10, 10],        "fixed_dim": 2},
     "camel3":        {"bounds": [-5, 5],          "fixed_dim": 2},
     "easom":         {"bounds": [-100, 100],      "fixed_dim": 2},
-    "michaelwicz2d": {"bounds": [0, np.pi],       "fixed_dim": 2}, # Aprox [0, 3.14]
+    "michaelwicz2d": {"bounds": [0, np.pi],       "fixed_dim": 2}, 
 }

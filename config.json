@@ -1,10 +1,10 @@
 
 {
   "run": {
-    "alg": "gwo, pso, ga, de, aco, bat, cso, c_so, fwa",
-    "obj": "sphere, rosenbrock, rastrigin, ackley",
+    "alg": "fwa, pso, ga, de, aco, bat, cso, c_so, gwo",
+    "obj": "sphere, rosenbrock, rastrigin, ackley, griewank, schwefel, himmelblau, beale, booth, camel3, easom, michaelwicz2d",
     "n_runs": 30,
-    "dim": 2,
+    "dim": 4,
     "bounds": "auto", 
     "iters": 25,
     "pop": 20,
