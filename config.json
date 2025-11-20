@@ -1,11 +1,12 @@
 
 {
   "run": {
-    "alg": "cso",
-    "obj": "sphere, rastrigin, ackley, himmelblau, michaelwicz2d, rosenbrock",
+    "alg": "gwo, pso, ga, de, aco, bat, cso, c_so, fwa",
+    "obj": "sphere, rosenbrock, rastrigin, ackley",
+    "n_runs": 30,
     "dim": 2,
-    "bounds": "-5,5",
-    "iters": 100,
+    "bounds": "auto", 
+    "iters": 25,
     "pop": 20,
     "seed": null,
     "animate": true,
@@ -15,7 +16,8 @@
     "heatmap_res": 200,
     "heatmap_levels": 30,
     "cmap": "viridis",
-    "save_path": null
+    "save_path": null,
+    "plot_individual": false
   },
 
   "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null },
@@ -25,7 +27,13 @@
   "bat": { "A": 0.95,"r": 0.1, "Qmin": 0.0, "Qmax": 2.0, "alpha": 0.97, "gamma": 0.1, "sigma": 0.05 },
   "cso": {"mix_rate": 0.25, "smp": 5, "srd": 0.2, "cdc": 0.8, "spc": true, "velocity_limit_factor": 0.03},
   "c_so": { "pa": 0.50, "beta": 1.5, "alpha": 0.09 },
-  "fwa": {"S_min": 5,"S_max": 30, "A_max": 40.0, "m_gauss": 5}
+  "fwa": {"S_min": 5,"S_max": 30, "A_max": 40.0, "m_gauss": 5},
+  "gwo": { }
+
+
+
+
+
 
 }
 

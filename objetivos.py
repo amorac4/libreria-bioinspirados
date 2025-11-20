@@ -117,21 +117,39 @@ def easom(x):
     
     return term1 * term2
 
-# Diccionario para que main.py encuentre las funciones por su nombre
-OBJETIVOS_REGISTRADOS: dict[str, Callable] = {
-    # Funciones N-Dimensionales
+# ... (tus funciones def sphere, def ackley, etc. siguen igual) ...
+
+# Diccionario de Funciones (Callable)
+OBJETIVOS_REGISTRADOS = {
+    "sphere": sphere,
     "ackley": ackley,
-    "griewank": griewank,
     "rastrigin": rastrigin,
+    "griewank": griewank,
     "rosenbrock": rosenbrock,
     "schwefel": schwefel,
-    "sphere": sphere,
-
-    # Funciones Fijas 2D
+    "himmelblau": himmelblau,
     "beale": beale,
     "booth": booth,
     "camel3": camel3,
     "easom": easom,
-    "himmelblau": himmelblau,
     "michaelwicz2d": michaelwicz2d,
+}
+
+# Diccionario de Metadatos (Límites y Dimensiones Estándar)
+INFO_OBJETIVOS = {
+    # N-Dimensionales (El 'dim' es sugerido por defecto, pero puede cambiarse)
+    "sphere":      {"bounds": [-100, 100],   "default_dim": 30},
+    "ackley":      {"bounds": [-32, 32],     "default_dim": 30},
+    "rastrigin":   {"bounds": [-5.12, 5.12], "default_dim": 30},
+    "griewank":    {"bounds": [-600, 600],   "default_dim": 30},
+    "rosenbrock":  {"bounds": [-30, 30],     "default_dim": 30}, # A veces [-5, 10] o [-2.048, 2.048]
+    "schwefel":    {"bounds": [-500, 500],   "default_dim": 30},
+
+    # 2D Fijas (El 'dim' ES FIJO, forzaremos a 2 aunque el config diga 10)
+    "himmelblau":    {"bounds": [-5, 5],          "fixed_dim": 2},
+    "beale":         {"bounds": [-4.5, 4.5],      "fixed_dim": 2},
+    "booth":         {"bounds": [-10, 10],        "fixed_dim": 2},
+    "camel3":        {"bounds": [-5, 5],          "fixed_dim": 2},
+    "easom":         {"bounds": [-100, 100],      "fixed_dim": 2},
+    "michaelwicz2d": {"bounds": [0, np.pi],       "fixed_dim": 2}, # Aprox [0, 3.14]
 }

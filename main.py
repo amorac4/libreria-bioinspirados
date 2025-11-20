@@ -1,219 +1,195 @@
+# main.py
 from __future__ import annotations
-import json, sys
+import json
+import sys
+import time
 from pathlib import Path
-from typing import Callable, Any
 import numpy as np
 
+# --- IMPORTACIONES ---
 from algoritmos import ALGORITMOS_REGISTRADOS
-from objetivos import OBJETIVOS_REGISTRADOS
-from visualizar import  animate_convergencia, animate_swarm, animate_swarm_heatmap, plot_convergencia, animate_swarm_3d
+# Importamos también INFO_OBJETIVOS para saber los límites
+from objetivos import OBJETIVOS_REGISTRADOS, INFO_OBJETIVOS 
+from visualizar import (
+    animate_convergencia, animate_swarm, animate_swarm_heatmap, animate_swarm_3d,
+    plot_convergencia, plot_boxplot, plot_convergence_average, 
+    plot_comparacion_algoritmos
+)
 
 DEFAULT_CONFIG_PATHS = ["config.local.json", "config.json"]
 
 def load_config() -> dict:
-    """Busca config.local.json o config.json en el directorio actual."""
     for name in DEFAULT_CONFIG_PATHS:
         p = Path(name)
         if p.exists():
-            try:
-                return json.loads(p.read_text(encoding="utf-8"))
-            except Exception as e:
-                raise RuntimeError(f"Error leyendo {name}: {e}")
-    # Si no hay config, devolvemos defaults mínimos
-    return {
-        "run": {
-            "alg": "pso",
-            "obj": "ackley",
-            "dim": 2,
-            "bounds": "-5,5",
-            "iters": 200,
-            "pop": 50,
-            "seed": 7,
-            "plot": False,
-            "animate": True
-        },
-        "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": None },
-        "ga":  { "pc": 0.9, "pm": 0.05, "elitism": 1, "tournament_k": 3, "blx_alpha": 0.3, "sigma_frac": 0.1 },
-        "de":  { "F": 0.5, "CR": 0.9, "strategy": "rand/1/bin" }
-    }
-
-def parse_bounds(bounds_spec: Any, dim: int) -> np.ndarray:
-    """ Parsea la especificación de límites y devuelve un array de NumPy (dim, 2). """
-    pairs = []
-    if isinstance(bounds_spec, str):
-        s = bounds_spec.strip()
-        if ";" in s:
-            # Caso: "-5,5;-1,1"
-            for part in s.split(";"):
-                lo, hi = map(float, part.split(","))
-                pairs.append((lo, hi))
-            if len(pairs) != dim:
-                raise ValueError(f"Los límites ({len(pairs)}) no coinciden con dim={dim}.")
-        else:
-            # Caso: "-5,5"
-            lo, hi = map(float, s.split(","))
-            pairs = [(lo, hi)] * dim
-
-    elif isinstance(bounds_spec, (list, tuple)):
-        # Caso: [[-5,5],[-1,1],...]
-        pairs = [(float(lo), float(hi)) for lo, hi in bounds_spec]
-        if len(pairs) == 1:
-            pairs = pairs * dim
-        if len(pairs) != dim:
-            raise ValueError(f"Los límites ({len(pairs)}) no coinciden con dim={dim}.")
-    else:
-        raise TypeError("Formato de 'bounds' no reconocido.")
-
-    return np.array(pairs)
-
-# main.py
+            try: return json.loads(p.read_text(encoding="utf-8"))
+            except Exception as e: raise RuntimeError(f"Error leyendo {name}: {e}")
+    return {}
 
 def main():
     cfg = load_config()
-    
-    # Carga la configuración de la corrida (UNA SOLA)
     run = cfg.get("run", {})
     if not run:
-        print("[ERROR] No se encontró la sección 'run' en el config.json.")
-        sys.exit(1)
+        print("[ERROR] No se encontró 'run' en config.json"); sys.exit(1)
 
-    # --- 1. Cargar Parámetros Comunes (Fuera del Bucle) ---
-    print("Cargando configuración común...")
+    # --- Configuración Base ---
+    base_dim = run.get("dim", 2)
+    base_iters = run.get("iters", 200)
+    base_pop = run.get("pop", 50)
+    base_seed = run.get("seed", None)
+    n_runs = run.get("n_runs", 1)
     
-    # Parámetros del algoritmo
-    alg_name = run.get("alg")
-    alg_fn = ALGORITMOS_REGISTRADOS.get(alg_name)
-    if not alg_fn:
-        print(f"[ERROR] Algoritmo '{alg_name}' no encontrado en ALGORITMOS_REGISTRADOS.")
-        sys.exit(1)
-    alg_params = cfg.get(alg_name, {})
-
-    # Parámetros de la simulación
-    dim = run.get("dim", 2)
-    iters = run.get("iters", 200)
-    pop = run.get("pop", 50)
-    seed = run.get("seed", None)
-
-    # Parámetros de visualización
     plot = run.get("plot", False)
+    plot_individual = run.get("plot_individual", True) 
     animate = run.get("animate", True)
     show_heatmap = run.get("show_heatmap", True)
     animation_type = run.get("animation_type", "2d")
+    
     heatmap_res = run.get("heatmap_res", 100)
     heatmap_levels = run.get("heatmap_levels", 20)
     cmap = run.get("cmap", "viridis")
     save_path = run.get("save_path", None)
 
-    # Procesar Límites (Bounds)
-    bounds_str = run.get("bounds", "-5,5")
-    try:
-        b_min, b_max = [float(b.strip()) for b in bounds_str.split(',')]
-        bounds = np.array([[b_min, b_max]] * dim)
-        print(f"Límites comunes: [{b_min}, {b_max}] en {dim}D")
-    except Exception as e:
-        print(f"[ERROR] 'bounds' debe ser 'min,max' (ej: '-5,5'). Error: {e}")
-        sys.exit(1)
+    # --- Bounds Globales vs Auto ---
+    # Si el usuario pone "auto", usaremos los del archivo objetivos.py
+    config_bounds_str = run.get("bounds", "auto") 
 
-    # --- 2. Preparar Bucle de Funciones Objetivo ---
-    
-    obj_name_string = run.get("obj")
-    if not obj_name_string:
-        print("[ERROR] No se especificó 'obj' en la sección 'run'.")
-        sys.exit(1)
+    obj_str = run.get("obj", "sphere")
+    obj_names = [x.strip() for x in obj_str.split(',') if x.strip()]
 
-    # Crea la lista de objetivos (ej: "sphere, rastrigin" -> ["sphere", "rastrigin"])
-    obj_names_list = [name.strip() for name in obj_name_string.split(',') if name.strip()]
-    n_exp = len(obj_names_list)
-    print(f"Configuración cargada. {n_exp} funciones objetivo en cola.")
+    alg_str = run.get("alg", "pso")
+    alg_names = [x.strip() for x in alg_str.split(',') if x.strip()]
 
-    # --- 3. Iniciar Bucle de Ejecución ---
-    
-    for i, obj_name in enumerate(obj_names_list):
-        
-        print(f"\n[--- Ejecución {i+1}/{n_exp}: Alg={alg_name}, Obj={obj_name} ---]")
+    print(f"=== ESTUDIO COMPARATIVO INTELIGENTE ===")
+    print(f"Algoritmos: {alg_names}")
+    print(f"Objetivos : {obj_names}")
+    print(f"Config Global: Runs={n_runs}, Pop={base_pop}, Iters={base_iters}")
+    print(f"Modo Bounds  : {config_bounds_str}\n")
 
-        # Cargar la función objetivo (DENTRO del bucle)
+    for i_obj, obj_name in enumerate(obj_names):
         objective = OBJETIVOS_REGISTRADOS.get(obj_name)
         if not objective:
-            print(f"[ERROR] Función objetivo '{obj_name}' no encontrada. Omitiendo.")
-            continue # Salta a la siguiente función
-
-        # Copia los parámetros para esta corrida (evita contaminación)
-        alg_params_copy = alg_params.copy()
+            print(f"[WARN] Objetivo '{obj_name}' no encontrado."); continue
+            
+        # --- LÓGICA DE METADATOS (DIMENSIÓN Y BOUNDS) ---
+        info = INFO_OBJETIVOS.get(obj_name, {})
         
-        # Activa el log de posiciones si es necesario (DENTRO del bucle)
-        if animate and dim == 2:
-            alg_params_copy.update({"log_positions": True, "log_every": 1})
+        # 1. Determinar Dimensión
+        # Si la función es FIJA en 2D (ej: himmelblau), forzamos dim=2
+        if "fixed_dim" in info:
+            current_dim = info["fixed_dim"]
+            dim_msg = f"{current_dim} (Fijo)"
+        else:
+            # Si no es fija, usamos la del config
+            current_dim = base_dim
+            dim_msg = f"{current_dim} (Config)"
+            
+        # 2. Determinar Bounds
+        if config_bounds_str == "auto":
+            # Usar los bounds estándar de la función
+            if "bounds" in info:
+                b_val = info["bounds"]
+                bounds = np.array([b_val] * current_dim)
+                bounds_msg = f"Auto [{b_val[0]}, {b_val[1]}]"
+            else:
+                # Fallback si no hay info
+                bounds = np.array([[-5.0, 5.0]] * current_dim)
+                bounds_msg = "Default [-5, 5]"
+        else:
+            # El usuario forzó bounds específicos en config (ej: "-10, 10")
+            try:
+                b_min, b_max = [float(b.strip()) for b in config_bounds_str.split(',')]
+                bounds = np.array([[b_min, b_max]] * current_dim)
+                bounds_msg = f"Manual [{b_min}, {b_max}]"
+            except:
+                print("[ERROR] Bounds manuales mal formados."); sys.exit(1)
+
+        print(f"\n>>> PROCESANDO: {obj_name.upper()} ({i_obj+1}/{len(obj_names)})")
+        print(f"    Dimensión: {dim_msg} | Límites: {bounds_msg}")
         
-        # Modifica el seed para que cada corrida sea única (opcional pero recomendado)
-        current_seed = seed + i if seed is not None else None
+        comparative_curves = {}
         
-        print(f"Ejecutando (dim={dim}, iters={iters}, pop={pop}, seed={current_seed})...")
-
-        # --- Ejecutar el algoritmo ---
-        best_x, best_f, history = alg_fn(
-            objective=objective,
-            bounds=bounds,
-            max_iters=iters,
-            pop_size=pop,
-            seed=current_seed, 
-            **alg_params_copy
-        )
-
-        print(f"[OK] Resultado para {obj_name}:")
-        print(f" best_f = {best_f:.6f}")
-        print(f" best_x = {best_x}")
-
-        # --- Gráficas (DENTRO del bucle) ---
-        if plot:
-            plot_convergencia(history, title=f"Convergencia {alg_name.upper()} - {obj_name}")
-
-        if animate:
-            if dim == 2 and "pos" in history:
+        for alg_name in alg_names:
+            alg_fn = ALGORITMOS_REGISTRADOS.get(alg_name)
+            if not alg_fn: continue
+            
+            alg_params = cfg.get(alg_name, {}).copy()
+            
+            print(f"  -> {alg_name.upper()}...", end="")
+            
+            run_fitnesses = []        
+            all_histories = []        
+            best_run_history = None   
+            best_run_val = float("inf")
+            
+            start_time = time.time()
+            
+            for r in range(n_runs):
+                current_seed = (base_seed + r) if base_seed is not None else None
+                current_params = alg_params.copy()
                 
-                # --- Función auxiliar para 2D ---
-                def run_2d_animation():
-                    if show_heatmap:
-                        print("Mostrando animación 2D (Heatmap)...")
-                        animate_swarm_heatmap(history, objective, bounds,
-                                            title=f"{alg_name.upper()} - {obj_name} (2D Heatmap)",
-                                            res=heatmap_res, levels=heatmap_levels, cmap=cmap,
-                                            save_path=save_path)
-                    else:
-                        print("Mostrando animación 2D (Scatter)...")
-                        animate_swarm(history, bounds,
-                                    title=f"{alg_name.upper()} - {obj_name} (2D Scatter)",
-                                    save_path=save_path)
-
-                # --- Función auxiliar para 3D ---
-                def run_3d_animation():
-                    print("Mostrando animación 3D... (cierre la ventana para continuar)")
-                    animate_swarm_3d(history, objective, bounds,
-                                        title=f"{alg_name.upper()} - {obj_name} (3D Surface)",
-                                        res=heatmap_res, cmap=cmap,
-                                        save_path=save_path)
+                if animate and plot_individual:
+                    current_params["log_positions"] = True
+                    current_params["log_every"] = 1
                 
-                # --- Lógica de Selección ---
-                if animation_type == "3d":
-                    run_3d_animation()
-                elif animation_type == "2d":
-                    run_2d_animation()
-                elif animation_type == "both":
-                    run_3d_animation()  # Muestra 3D primero
-                    run_2d_animation()  # Muestra 2D después
+                bx, bf, hist = alg_fn(
+                    objective=objective, bounds=bounds, max_iters=base_iters,
+                    pop_size=base_pop, seed=current_seed, **current_params
+                )
+                
+                run_fitnesses.append(bf)
+                if "best_f" in hist: all_histories.append(hist["best_f"])
+                if bf < best_run_val:
+                    best_run_val = bf
+                    best_run_history = hist
+
+            total_time = time.time() - start_time
+            fit_arr = np.array(run_fitnesses)
+            print(f" Fin. Mejor: {np.min(fit_arr):.2e} | Media: {np.mean(fit_arr):.2e} ({total_time:.2f}s)")
+
+            if all_histories:
+                min_len = min(len(h) for h in all_histories)
+                data_mat = np.array([h[:min_len] for h in all_histories])
+                comparative_curves[alg_name] = np.mean(data_mat, axis=0)
+
+            # Gráficas Individuales (si plot_individual=True)
+            if plot and plot_individual:
+                if n_runs > 1:
+                    plot_boxplot(run_fitnesses, title=f"{alg_name.upper()} - {obj_name}", xlabel=alg_name.upper())
+                    plot_convergence_average(all_histories, title=f"Conv. {alg_name.upper()} - {obj_name}")
+                elif n_runs == 1 and best_run_history:
+                    plot_convergencia(best_run_history, title=f"Conv. {alg_name.upper()} - {obj_name}")
+
+            # Animaciones Individuales (si plot_individual=True)
+            if animate and plot_individual and best_run_history:
+                if current_dim == 2 and "pos" in best_run_history:
+                    def run_2d():
+                        if show_heatmap:
+                            animate_swarm_heatmap(best_run_history, objective, bounds, 
+                                                title=f"{alg_name.upper()}-{obj_name}", 
+                                                res=heatmap_res, levels=heatmap_levels, cmap=cmap, save_path=save_path)
+                        else:
+                            animate_swarm(best_run_history, bounds, title=f"{alg_name.upper()}-{obj_name}", save_path=save_path)
+                    
+                    def run_3d():
+                        animate_swarm_3d(best_run_history, objective, bounds, 
+                                         title=f"{alg_name.upper()}-{obj_name} (3D)", res=heatmap_res, cmap=cmap, save_path=save_path)
+
+                    if animation_type == "3d": run_3d()
+                    elif animation_type == "2d": run_2d()
+                    elif animation_type == "both": run_3d(); run_2d()
+                    else: run_2d()
                 else:
-                    print(f"Advertencia: 'animation_type' ('{animation_type}') no reconocido. Usando '2d'.")
-                    run_2d_animation()
+                    animate_convergencia(best_run_history, title=f"Conv. {alg_name.upper()} - {obj_name}", save_path=save_path)
 
-            else: # Si dim no es 2, o no hay historial de 'pos'
-                animate_convergencia(history,
-                                     title=f"Convergencia {alg_name.upper()} - {obj_name}",
-                                     save_path=save_path)
+        # Gráfica Comparativa Final (Siempre si plot=True)
+        if plot and len(comparative_curves) > 0:
+            if len(comparative_curves) > 1 or not plot_individual:
+                plot_comparacion_algoritmos(comparative_curves, 
+                    title=f"Comparativa: {', '.join(comparative_curves.keys())} en {obj_name.upper()}", 
+                    save_path=save_path)
+            
+    print("\n=== FIN ===")
 
-    print("\n[--- Fin de todas las ejecuciones ---]")
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        sys.exit(1)
+    main()

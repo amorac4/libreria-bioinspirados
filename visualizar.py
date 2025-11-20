@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Callable
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -62,62 +63,58 @@ def animate_convergencia(history: dict[str, list], interval_ms: int = 60,
 # --------------------------------
 #  Animación del enjambre (2D puro)
 # --------------------------------
-def animate_swarm(history: dict[str, list],
-                  bounds: np.ndarray, # Acepta np.ndarray
-                  interval_ms: int = 60,
-                  title: str = "Swarm (2D)",
-                  show_gbest_path: bool = True,
+
+def animate_swarm(history: dict[str, list], bounds: np.ndarray,
+                  title: str = "Animación de Enjambre",
                   save_path: str | None = None):
-    pos_hist = history.get("pos")
-    gbest_hist = history.get("gbest")
-    if not pos_hist:
-        raise ValueError("No hay posiciones en history['pos']. Ejecuta con log_positions=True y dim=2.")
-
-    # bounds ahora es un array (dim, 2)
-    xlo, xhi = bounds[0, 0], bounds[0, 1]
-    ylo, yhi = bounds[1, 0], bounds[1, 1]
     
-    fig, ax = plt.subplots()
-    scat = ax.scatter([], [], s=25)
-    gdot, = ax.plot([], [], marker="x", linestyle="none", markersize=8)  # gbest actual
-    gpath = None
-    if show_gbest_path:
-        gpath, = ax.plot([], [], lw=1.2, alpha=0.8)
+    pos_hist = history.get("pos", [])
+    if not pos_hist:
+        return
 
+    xlo, xhi = bounds[0]
+    ylo, yhi = bounds[1]
+
+    fig, ax = plt.subplots()
     ax.set_xlim(xlo, xhi)
     ax.set_ylim(ylo, yhi)
-    ax.set_title(title)
     ax.set_xlabel("x1")
     ax.set_ylabel("x2")
+    
+    # Título inicial (se actualizará)
+    ax.set_title(title)
+
+    scat = ax.scatter([], [], c="black", s=20, alpha=0.6)
+    gdot, = ax.plot([], [], marker="x", linestyle="none", markersize=10, color="red")
 
     def init():
         scat.set_offsets(np.empty((0, 2)))
         gdot.set_data([], [])
-        if gpath is not None:
-            gpath.set_data([], [])
-        return (scat, gdot, gpath) if gpath is not None else (scat, gdot)
+        return scat, gdot
 
     def update(frame):
-        # pos_hist ya contiene arrays de NumPy (pop_size, dim)
-        pts = pos_hist[frame] 
-        scat.set_offsets(pts[:, :2]) # Asegura que solo tome x, y
+        # Posiciones actuales
+        current_pos = pos_hist[frame]
+        scat.set_offsets(current_pos)
+        
+        # Mejor global actual
+        gbest_curr = history["gbest_hist"][frame]
+        gdot.set_data([gbest_curr[0]], [gbest_curr[1]])
+        
+        # --- CAMBIO AQUÍ: Actualizar el título con la iteración ---
+        ax.set_title(f"{title}\nIteración: {frame}/{len(pos_hist)-1}")
+        
+        return scat, gdot
 
-        if gbest_hist:
-            g_vec = gbest_hist[frame]
-            gdot.set_data([g_vec[0]], [g_vec[1]])
-            if gpath is not None:
-                # gbest_hist es una lista de np.ndarray
-                g_path_data = np.array(gbest_hist[: frame + 1])
-                gpath.set_data(g_path_data[:, 0], g_path_data[:, 1])
+    ani = FuncAnimation(fig, update, frames=len(pos_hist),
+                        init_func=init, blit=False, interval=50) # blit=False para que el título se actualice bien
 
-        return (scat, gdot, gpath) if gpath is not None else (scat, gdot)
-
-    ani = FuncAnimation(fig, update, frames=len(pos_hist), init_func=init, interval=interval_ms, blit=True)
-    plt.tight_layout()
     if save_path:
-        ani.save(save_path)
+        ani.save(save_path, writer='ffmpeg', fps=15)
     else:
         plt.show()
+
+
 
 # ---------------------------------------------------
 #  Animación del enjambre (2D) con heatmap del objetivo
@@ -134,172 +131,278 @@ def _grid_objective(objective, bounds: np.ndarray, res: int = 200):
     Z = objective(grid_points)
     return X, Y, Z
 
+
 def animate_swarm_heatmap(history: dict[str, list],
-                          objective,
-                          bounds: np.ndarray, # Acepta np.ndarray
-                          interval_ms: int = 60,
-                          title: str = "Swarm (2D) + Heatmap",
-                          show_gbest_path: bool = True,
-                          res: int = 200, levels: int = 30, cmap: str = "viridis",
-                          save_path: str | None = None):
-    pos_hist = history.get("pos")
-    gbest_hist = history.get("gbest")
+                          objective: Callable,
+                          bounds: np.ndarray,
+                          title: str = "Mapa de Calor",
+                          res: int = 100,
+                          levels: int = 20,
+                          cmap: str = "viridis",
+                          save_path: str | None = None,
+                          show_gbest_path: bool = False):
+    
+    pos_hist = history.get("pos", [])
+    gbest_hist = history.get("gbest_hist", [])
     if not pos_hist:
-        raise ValueError("No hay posiciones en history['pos']. Ejecuta con log_positions=True y dim=2.")
+        print("No hay historial de posiciones ('pos') para animar.")
+        return
 
-    xlo, xhi = bounds[0, 0], bounds[0, 1]
-    ylo, yhi = bounds[1, 0], bounds[1, 1]
-    X, Y, Z = _grid_objective(objective, bounds, res=res)
+    # Configurar malla
+    xlo, xhi = bounds[0]
+    ylo, yhi = bounds[1]
+    X = np.linspace(xlo, xhi, res)
+    Y = np.linspace(ylo, yhi, res)
+    X, Y = np.meshgrid(X, Y)
+    
+    # Evaluar Z
+    XY = np.column_stack([X.ravel(), Y.ravel()])
+    Z = objective(XY).reshape(X.shape)
 
-    fig, ax = plt.subplots()
+    # Plot
+    fig, ax = plt.subplots(figsize=(7, 6))
     cs = ax.contourf(X, Y, Z, levels=levels, cmap=cmap, alpha=0.95)
-    ax.contour(X, Y, Z, levels=levels, colors="k", linewidths=0.3, alpha=0.5)
     fig.colorbar(cs, ax=ax)
 
     scat = ax.scatter([], [], s=25, c="white", edgecolors="black", linewidths=0.5)
     gdot, = ax.plot([], [], marker="x", linestyle="none", markersize=8, color="red")
+    
     gpath = None
     if show_gbest_path:
         gpath, = ax.plot([], [], lw=1.2, alpha=0.9, color="red")
 
     ax.set_xlim(xlo, xhi); ax.set_ylim(ylo, yhi)
-    ax.set_title(title); ax.set_xlabel("x1"); ax.set_ylabel("x2")
+    ax.set_xlabel("x1"); ax.set_ylabel("x2")
 
     def init():
         scat.set_offsets(np.empty((0, 2)))
         gdot.set_data([], [])
         if gpath is not None:
             gpath.set_data([], [])
-        return (scat, gdot, gpath) if gpath is not None else (scat, gdot)
+        # Retorno condicional para evitar errores
+        items = [scat, gdot]
+        if gpath: items.append(gpath)
+        return tuple(items)
 
     def update(frame):
-        # pos_hist ya contiene arrays de NumPy (pop_size, dim)
         pts = pos_hist[frame]
         scat.set_offsets(pts[:, :2])
 
         if gbest_hist:
-            g_vec = gbest_hist[frame]
-            gdot.set_data([g_vec[0]], [g_vec[1]])
+            gb = gbest_hist[frame]
+            gdot.set_data([gb[0]], [gb[1]])
+            
             if gpath is not None:
-                g_path_data = np.array(gbest_hist[: frame + 1])
-                gpath.set_data(g_path_data[:, 0], g_path_data[:, 1])
+                # Rastro completo hasta el frame actual
+                hist_arr = np.array(gbest_hist[:frame+1])
+                gpath.set_data(hist_arr[:, 0], hist_arr[:, 1])
 
-        return (scat, gdot, gpath) if gpath is not None else (scat, gdot)
+        # --- CAMBIO AQUÍ: Actualizar título ---
+        ax.set_title(f"{title}\nIteración: {frame}/{len(pos_hist)-1}")
 
-    ani = FuncAnimation(fig, update, frames=len(pos_hist), init_func=init, interval=interval_ms, blit=True)
-    plt.tight_layout()
+        items = [scat, gdot]
+        if gpath: items.append(gpath)
+        return tuple(items)
+
+    # blit=False es importante para que los cambios de título (fuera del canvas del plot) se rendericen
+    ani = FuncAnimation(fig, update, frames=len(pos_hist),
+                        init_func=init, blit=False, interval=60)
+
     if save_path:
-        ani.save(save_path)
+        ani.save(save_path, writer='ffmpeg', fps=15)
     else:
         plt.show()
+
+
 # --------------------------------
 
 # ------------------------------------------
 #  Animación de Enjambre 3D (Superficie)
 # ------------------------------------------
+
 def animate_swarm_3d(history: dict[str, list],
-                       objective: callable,
+                       objective: Callable,
                        bounds: np.ndarray,
                        title: str = "Animación de Enjambre 3D",
                        res: int = 100,
                        cmap: str = "viridis",
                        save_path: str | None = None):
-    """
-    Anima el movimiento del enjambre sobre una superficie 3D de la función objetivo.
-    (Solo funciona para problemas 2D).
-    """
     
     pos_hist = history.get("pos", [])
     gbest_hist = history.get("gbest_hist", [])
     if not pos_hist:
-        print("Error: No hay 'pos_hist' en el historial. ¿log_positions=True?")
+        print("Error: No hay 'pos_hist'.")
         return
 
-    # --- 1. Preparar datos de la Superficie 3D ---
     xlo, xhi = bounds[0]
     ylo, yhi = bounds[1]
     
-    # Crea la malla (mesh)
     X = np.linspace(xlo, xhi, res)
     Y = np.linspace(ylo, yhi, res)
     X, Y = np.meshgrid(X, Y)
-    
-    # Prepara los puntos para la evaluación
-    # (res*res, 2)
     xy_pairs = np.vstack([X.ravel(), Y.ravel()]).T
-    
-    # Evalúa todos los puntos de la malla
     Z = objective(xy_pairs).reshape(X.shape)
     
-    z_min = Z.min()
-    z_max = Z.max()
+    z_min, z_max = Z.min(), Z.max()
 
-    # --- 2. Configurar la Figura 3D ---
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
     
-    # Dibuja la superficie de la función objetivo
     ax.plot_surface(X, Y, Z, cmap=cmap, alpha=0.6, antialiased=True, rcount=res, ccount=res)
     ax.set_xlim(xlo, xhi); ax.set_ylim(ylo, yhi); ax.set_zlim(z_min, z_max)
-    ax.set_title(title); ax.set_xlabel("x1"); ax.set_ylabel("x2"); ax.set_zlabel("Fitness")
+    ax.set_xlabel("x1"); ax.set_ylabel("x2"); ax.set_zlabel("Fitness")
     
-    # --- 3. Configurar los Puntos de Animación ---
-    
-    # Inicializa el scatter plot 3D para las partículas
-    # Nota: ax.scatter 3D devuelve un Path3DCollection
     scat = ax.scatter([], [], [], s=20, c="red", edgecolors="black", depthshade=True)
-    
-    # Inicializa el punto para el Mejor Global (Gbest)
     gdot, = ax.plot([], [], [], marker='*', linestyle="None", markersize=12, color="cyan", markeredgecolor="black")
     
-    # --- 4. Definir Funciones de Animación ---
-    
     def init():
-        # Para 3D, 'set_data_3d' es mejor para plots, y _offsets3d para scatter
         scat._offsets3d = ([], [], [])
         gdot.set_data_3d([], [], [])
         return scat, gdot
 
     def update(frame):
-        # Obtiene las posiciones (x, y) del historial
-        pts_2d = pos_hist[frame] # (pop_size, 2)
+        pts_2d = pos_hist[frame]
+        pts_z = objective(pts_2d)
         
-        # Calcula el 'Z' (fitness) para cada partícula
-        # para que se dibujen 'sobre' la superficie
-        pts_z = objective(pts_2d) # (pop_size,)
-        
-        # Actualiza el scatter 3D
         scat._offsets3d = (pts_2d[:, 0], pts_2d[:, 1], pts_z)
         
         if gbest_hist:
-            # Obtiene el Gbest (x, y)
-            g_pos_2d = gbest_hist[frame] # (2,)
-            
-            # Calcula su 'Z' (fitness)
-            g_pos_z = objective(g_pos_2d) # (,)
-            
-            # Actualiza el punto Gbest
+            g_pos_2d = gbest_hist[frame]
+            g_pos_z = objective(g_pos_2d)
             gdot.set_data_3d([g_pos_2d[0]], [g_pos_2d[1]], [g_pos_z])
+            
+        # --- CAMBIO AQUÍ ---
+        ax.set_title(f"{title}\nIteración: {frame}/{len(pos_hist)-1}")
             
         return scat, gdot
 
-    # --- 5. Crear y Mostrar Animación ---
-    
-    # Ajusta el intervalo si hay muchos frames
-    interval = max(20, 3000 // len(pos_hist))
-    
+    # blit=False para permitir actualizar el título
     ani = FuncAnimation(
         fig,
         update,
         frames=len(pos_hist),
         init_func=init,
-        blit=True,
-        interval=interval,
+        blit=False, 
+        interval=max(20, 3000 // len(pos_hist)),
     )
 
     if save_path:
-        print(f"Guardando animación 3D en {save_path}...")
         ani.save(save_path, writer='ffmpeg', fps=30)
-        print("Guardado.")
     else:
         plt.show()
+
+
+# ------------------------------------------
+#  Gráficas Estadísticas (Boxplot y Promedio)
+# ------------------------------------------
+
+def plot_boxplot(data: list[float] | np.ndarray, 
+                 title: str = "Distribución de Fitness Final",
+                 xlabel: str = "Algoritmo",
+                 save_path: str | None = None):
+    """
+    Genera un diagrama de caja (Boxplot) de los valores finales de fitness.
+    Ayuda a visualizar la estabilidad del algoritmo.
+    """
+    fig, ax = plt.subplots(figsize=(6, 5))
+    
+    # Crear el boxplot
+    ax.boxplot(data, patch_artist=True, 
+               boxprops=dict(facecolor="lightblue", color="blue"),
+               medianprops=dict(color="red", linewidth=2))
+    
+    ax.set_title(title)
+    ax.set_ylabel("Fitness (Mejor Valor)")
+    ax.set_xticklabels([xlabel])
+    ax.grid(True, linestyle="--", alpha=0.6)
+    
+    if save_path:
+        plt.savefig(save_path)
+        print(f"Gráfica guardada en: {save_path}")
+    else:
+        plt.show()
+    plt.close()
+
+def plot_convergence_average(all_runs_history: list[list[float]], 
+                             title: str = "Convergencia Promedio",
+                             save_path: str | None = None):
+    """
+    Grafica la curva promedio de convergencia con sombra de desviación estándar.
+    Recibe una lista de listas, donde cada sub-lista es el historial 'best_f' de una corrida.
+    """
+    if not all_runs_history:
+        return
+
+    # Convertir a matriz numpy: (n_runs, n_iters)
+    # Nota: Asumimos que todas las corridas tienen el mismo número de iteraciones.
+    min_len = min(len(h) for h in all_runs_history)
+    data = np.array([h[:min_len] for h in all_runs_history])
+    
+    iters = np.arange(min_len)
+    mean_curve = np.mean(data, axis=0)
+    std_curve = np.std(data, axis=0)
+    
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    # Línea promedio
+    ax.plot(iters, mean_curve, label="Promedio", color="blue", linewidth=2)
+    
+    # Sombra de desviación estándar (Promedio ± Std)
+    ax.fill_between(iters, mean_curve - std_curve, mean_curve + std_curve, 
+                    color="blue", alpha=0.2, label="Desviación Estándar")
+    
+    ax.set_title(title)
+    ax.set_xlabel("Iteraciones")
+    ax.set_ylabel("Fitness (Log scale)" if np.min(mean_curve) > 0 else "Fitness")
+    ax.grid(True, linestyle="--", alpha=0.6)
+    ax.legend()
+    
+    # Opcional: Escala logarítmica si los valores son muy dispares
+    # ax.set_yscale("log")
+    
+    if save_path:
+        plt.savefig(save_path)
+        print(f"Gráfica guardada en: {save_path}")
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_comparacion_algoritmos(data_dict: dict[str, list[float] | np.ndarray],
+                                title: str = "Comparación de Algoritmos",
+                                save_path: str | None = None):
+    """
+    Grafica múltiples curvas de convergencia en la misma figura.
+    
+    Args:
+        data_dict: Diccionario { "NombreAlgoritmo": [lista_de_fitness_promedio] }
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    styles = ['-', '--', '-.', ':']
+    markers = [None, 'o', 's', '^', 'v', 'x']
+    
+    for i, (alg_name, curve) in enumerate(data_dict.items()):
+        # Estilo rotativo para diferenciar líneas
+        st = styles[i % len(styles)]
+        # mk = markers[i % len(markers)] # Descomentar si quieres marcadores (a veces ensucia la gráfica)
+        
+        # Graficar
+        iters = range(len(curve))
+        ax.plot(iters, curve, label=alg_name, linestyle=st, linewidth=2)
+
+    ax.set_title(title)
+    ax.set_xlabel("Iteraciones")
+    ax.set_ylabel("Fitness (Promedio)")
+    ax.grid(True, linestyle="--", alpha=0.6)
+    ax.legend()
+    
+    # Escala logarítmica suele ser mejor para ver diferencias pequeñas cerca de cero
+    # ax.set_yscale('log') 
+
+    if save_path:
+        plt.savefig(save_path)
+        print(f"Gráfica comparativa guardada en: {save_path}")
+    else:
+        plt.show()
+    plt.close()
