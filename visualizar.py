@@ -220,78 +220,82 @@ def animate_swarm_heatmap(history: dict[str, list],
 #  Animación de Enjambre 3D (Superficie)
 # ------------------------------------------
 
-def animate_swarm_3d(history: dict[str, list],
-                       objective: Callable,
-                       bounds: np.ndarray,
-                       title: str = "Animación de Enjambre 3D",
-                       res: int = 100,
-                       cmap: str = "viridis",
-                       save_path: str | None = None):
-    
-    pos_hist = history.get("pos", [])
-    gbest_hist = history.get("gbest_hist", [])
-    if not pos_hist:
-        print("Error: No hay 'pos_hist'.")
+def animate_swarm_3d(history: dict, objective: Callable, bounds: np.ndarray,
+                     title: str = "Swarm 3D", res: int = 50, cmap: str = 'viridis',
+                     save_path: str | None = None):
+    """
+    Animación 3D optimizada: Dibuja la superficie UNA vez y solo mueve los puntos.
+    """
+    if "pos" not in history or not history["pos"]:
+        print("[Visualizar] No hay historial de posiciones ('pos') para animar.")
         return
 
-    xlo, xhi = bounds[0]
-    ylo, yhi = bounds[1]
+    positions_history = history["pos"] # Lista de arrays (pop_size, dim)
     
-    X = np.linspace(xlo, xhi, res)
-    Y = np.linspace(ylo, yhi, res)
-    X, Y = np.meshgrid(X, Y)
-    xy_pairs = np.vstack([X.ravel(), Y.ravel()]).T
-    Z = objective(xy_pairs).reshape(X.shape)
-    
-    z_min, z_max = Z.min(), Z.max()
-
-    fig = plt.figure(figsize=(10, 8))
+    # 1. Preparar la Superficie (SOLO UNA VEZ)
+    fig = plt.figure(figsize=(10, 7))
     ax = fig.add_subplot(111, projection='3d')
     
-    ax.plot_surface(X, Y, Z, cmap=cmap, alpha=0.6, antialiased=True, rcount=res, ccount=res)
-    ax.set_xlim(xlo, xhi); ax.set_ylim(ylo, yhi); ax.set_zlim(z_min, z_max)
-    ax.set_xlabel("x1"); ax.set_ylabel("x2"); ax.set_zlabel("Fitness")
+    # Generar malla
+    x_min, x_max = bounds[0, 0], bounds[0, 1]
+    y_min, y_max = bounds[1, 0], bounds[1, 1]
     
-    scat = ax.scatter([], [], [], s=20, c="red", edgecolors="black", depthshade=True)
-    gdot, = ax.plot([], [], [], marker='*', linestyle="None", markersize=12, color="cyan", markeredgecolor="black")
+    # Usamos 'res' controlado (ej. 50) para no saturar
+    x = np.linspace(x_min, x_max, res)
+    y = np.linspace(y_min, y_max, res)
+    X_grid, Y_grid = np.meshgrid(x, y)
     
-    def init():
-        scat._offsets3d = ([], [], [])
-        gdot.set_data_3d([], [], [])
-        return scat, gdot
+    # Evaluar Z
+    # Aplanamos para evaluar vectorizado y luego volvemos a la forma de malla
+    points = np.stack([X_grid.ravel(), Y_grid.ravel()], axis=1)
+    Z = objective(points).reshape(X_grid.shape)
+    
+    # Dibujar superficie estática (alpha bajo para ver puntos detrás)
+    ax.plot_surface(X_grid, Y_grid, Z, cmap=cmap, alpha=0.6, edgecolor='none')
+    
+    # Configurar límites y etiquetas
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_zlim(Z.min(), Z.max())
+    ax.set_title(title)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Fitness')
 
+    # 2. Inicializar los puntos (Scatter)
+    # Inicialmente vacíos, se llenan en el update
+    scat = ax.scatter([], [], [], c='red', s=40, depthshade=False, edgecolors='black')
+    
+    # Texto de iteración
+    txt = ax.text2D(0.05, 0.95, "", transform=ax.transAxes)
+
+    # 3. Función de Actualización (SOLO mueve puntos)
     def update(frame):
-        pts_2d = pos_hist[frame]
-        pts_z = objective(pts_2d)
+        # Obtener posiciones de la iteración actual
+        pop = positions_history[frame] # (N, dim)
         
-        scat._offsets3d = (pts_2d[:, 0], pts_2d[:, 1], pts_z)
+        # Calcular altura Z para cada partícula (para que estén sobre la superficie)
+        # Opcional: Si quieres que los puntos floten en su valor real de fitness:
+        z_vals = objective(pop) 
         
-        if gbest_hist:
-            g_pos_2d = gbest_hist[frame]
-            g_pos_z = objective(g_pos_2d)
-            gdot.set_data_3d([g_pos_2d[0]], [g_pos_2d[1]], [g_pos_z])
-            
-        # --- CAMBIO AQUÍ ---
-        ax.set_title(f"{title}\nIteración: {frame}/{len(pos_hist)-1}")
-            
-        return scat, gdot
+        # Actualizar datos del scatter
+        scat._offsets3d = (pop[:, 0], pop[:, 1], z_vals)
+        
+        txt.set_text(f"Iteración: {frame}")
+        return scat, txt
 
-    # blit=False para permitir actualizar el título
-    ani = FuncAnimation(
-        fig,
-        update,
-        frames=len(pos_hist),
-        init_func=init,
-        blit=False, 
-        interval=max(20, 3000 // len(pos_hist)),
-    )
+    # Crear animación
+    anim = FuncAnimation(fig, update, frames=len(positions_history),
+                         interval=100, blit=False)
 
     if save_path:
-        ani.save(save_path, writer='ffmpeg', fps=30)
+        anim.save(save_path, writer='pillow', fps=10)
+        print(f"Animación 3D guardada en: {save_path}")
     else:
         plt.show()
-
-
+    
+    plt.close()
+    
 # ------------------------------------------
 #  Gráficas Estadísticas (Boxplot y Promedio)
 # ------------------------------------------

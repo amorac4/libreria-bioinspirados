@@ -2,7 +2,7 @@
 {
   "run": {
     "alg": "wsa",
-    "obj": "sphere, rosenbrock, rastrigin",
+    "obj": "sphere, rosenbrock, rastrigin, ackley, schwefel, griewank, levy, zakharov, michalewicz, himmelblau, beale, goldstein_price, booth, camel3, easom, michaelwicz2d, bukin6, matyas, threehumpcamel",
     "n_runs": 1,
     "dim": 2,
     "bounds": "auto", 
@@ -11,9 +11,9 @@
     "seed": null,
     "animate": true,
     "plot": true,
-    "animation_type": "2d",
+    "animation_type": "3d",
     "show_heatmap": true,
-    "heatmap_res": 200,
+    "heatmap_res": 30,
     "heatmap_levels": 30,
     "cmap": "viridis",
     "save_path": null,
