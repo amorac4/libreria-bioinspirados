@@ -1,10 +1,17 @@
 
 {
   "run": {
+<<<<<<< HEAD
     "alg": "wsa",
     "obj": "sphere, rosenbrock, rastrigin",
     "n_runs": 1,
     "dim": 2,
+=======
+    "alg": "fwa, pso, ga, de, aco, bat, cso, c_so, gwo",
+    "obj": "sphere, rosenbrock, rastrigin, ackley, griewank, schwefel, himmelblau, beale, booth, camel3, easom, michaelwicz2d",
+    "n_runs": 30,
+    "dim": 4,
+>>>>>>> d010362d436a0a841153f3326d2f5b6735baad59
     "bounds": "auto", 
     "iters": 25,
     "pop": 20,

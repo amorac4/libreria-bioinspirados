@@ -1,1 +1,1 @@
-sep
+modificar pso a mean_pso suma y divide entre 2
