@@ -222,13 +222,9 @@ INFO_OBJETIVOS = {
     "booth":         {"bounds": [-10, 10],        "fixed_dim": 2},
     "camel3":        {"bounds": [-5, 5],          "fixed_dim": 2},
     "easom":         {"bounds": [-100, 100],      "fixed_dim": 2},
-<<<<<<< HEAD
     "michaelwicz2d": {"bounds": [0, np.pi],       "fixed_dim": 2},
     "bukin6":       {"bounds": [-15, 5],         "fixed_dim": 2},
     "matyas":       {"bounds": [-10, 10],        "fixed_dim": 2},
     "threehumpcamel":{"bounds": [-5, 5],         "fixed_dim": 2},
 
-=======
-    "michaelwicz2d": {"bounds": [0, np.pi],       "fixed_dim": 2}, 
->>>>>>> d010362d436a0a841153f3326d2f5b6735baad59
 }
