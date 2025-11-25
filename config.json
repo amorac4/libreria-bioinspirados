@@ -1,9 +1,9 @@
 
 {
   "run": {
-    "alg": "gwo, pso, ga, de, aco, bat, cso, c_so, fwa",
-    "obj": "sphere, rosenbrock, rastrigin, ackley",
-    "n_runs": 30,
+    "alg": "wsa",
+    "obj": "sphere, rosenbrock, rastrigin",
+    "n_runs": 1,
     "dim": 2,
     "bounds": "auto", 
     "iters": 25,
@@ -17,7 +17,7 @@
     "heatmap_levels": 30,
     "cmap": "viridis",
     "save_path": null,
-    "plot_individual": false
+    "plot_individual": true
   },
 
   "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null },
@@ -28,7 +28,10 @@
   "cso": {"mix_rate": 0.25, "smp": 5, "srd": 0.2, "cdc": 0.8, "spc": true, "velocity_limit_factor": 0.03},
   "c_so": { "pa": 0.50, "beta": 1.5, "alpha": 0.09 },
   "fwa": {"S_min": 5,"S_max": 30, "A_max": 40.0, "m_gauss": 5},
-  "gwo": { }
+  "gwo": { },
+  "wsa": { "rho0": 2.0, "eta": 0.0 }
+
+
 
 
 
