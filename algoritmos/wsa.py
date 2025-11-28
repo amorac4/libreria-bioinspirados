@@ -47,7 +47,6 @@ def wsa(objective: Callable, bounds: np.ndarray,
     # -------------------------
     for it in range(max_iters):
         
-        # --- A. Cálculo Vectorizado de WSA ---
         
         # 1. Matriz de distancias
         diff_matrix = X[:, np.newaxis, :] - X[np.newaxis, :, :]

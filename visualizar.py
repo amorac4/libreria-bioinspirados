@@ -38,10 +38,11 @@ def animate_convergencia(history: dict[str, list], interval_ms: int = 60,
     if ymin == ymax:
         ymin -= 1.0
         ymax += 1.0
+    ax.set_yscale('log')
     ax.set_ylim(ymin, ymax)
     ax.set_title(title)
     ax.set_xlabel("iteración")
-    ax.set_ylabel("best_f")
+    ax.set_ylabel("error")
 
     def init():
         line.set_data([], [])
