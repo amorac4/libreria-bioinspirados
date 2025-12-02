@@ -1,13 +1,13 @@
 
 {
   "run": {
-    "alg": "gwo",
-    "obj": "rastrigin",
-    "n_runs": 100,
-    "dim": 100,
+    "alg": "mean_pso, pso, ga, de, aco, bat, cso, c_so, fwa, gwo, wsa",
+    "obj": " rastrigin, sphere, ackley, schwefel, rosenbrock, griewank, levy, michalewicz, zakharov, himmelblau, beale, booth, matyas, ",
+    "n_runs": 10,
+    "dim": 2,
     "bounds": "auto", 
-    "iters": 50,
-    "pop": 30,
+    "iters": 70,
+    "pop": 20,
     "seed": null,
     "animate": true,
     "plot": true,
@@ -17,7 +17,7 @@
     "heatmap_levels": 30,
     "cmap": "viridis",
     "save_path": null,
-    "plot_individual": true
+    "plot_individual": false
   },
 
   "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null },
@@ -29,7 +29,8 @@
   "c_so": { "pa": 0.50, "beta": 1.5, "alpha": 0.09 },
   "fwa": {"S_min": 5,"S_max": 30, "A_max": 40.0, "m_gauss": 5},
   "gwo": { },
-  "wsa": { "rho0": 2.0, "eta": 0.0 }
+  "wsa": { "rho0": 2.0, "eta": 0.0 },
+  "mean_pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null }
 
 
 

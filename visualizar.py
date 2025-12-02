@@ -42,7 +42,7 @@ def animate_convergencia(history: dict[str, list], interval_ms: int = 60,
     ax.set_ylim(ymin, ymax)
     ax.set_title(title)
     ax.set_xlabel("iteración")
-    ax.set_ylabel("error")
+    ax.set_ylabel("Mejor fitness")
 
     def init():
         line.set_data([], [])
@@ -397,6 +397,7 @@ def plot_comparacion_algoritmos(data_dict: dict[str, list[float] | np.ndarray],
         ax.plot(iters, curve, label=alg_name, linestyle=st, linewidth=2)
 
     ax.set_title(title)
+    ax.set_yscale("log")
     ax.set_xlabel("Iteraciones")
     ax.set_ylabel("Fitness (Promedio)")
     ax.grid(True, linestyle="--", alpha=0.6)

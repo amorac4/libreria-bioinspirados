@@ -9,6 +9,7 @@ from .c_so import c_so
 from .fwa import fwa
 from .gwo import gwo
 from .wsa import wsa
+from .mean_pso import mean_pso
 
 ALGORITMOS_REGISTRADOS = {
     "pso": pso,
@@ -20,7 +21,8 @@ ALGORITMOS_REGISTRADOS = {
     "c_so": c_so,
     "fwa": fwa,
     "gwo": gwo,
-    "wsa": wsa
+    "wsa": wsa,
+	"mean_pso": mean_pso
 }
 
 __all__ = [
@@ -34,5 +36,6 @@ __all__ = [
     "fwa",
     "gwo",
     "wsa",
+	"mean_pso",
     "ALGORITMOS_REGISTRADOS"
 ]
