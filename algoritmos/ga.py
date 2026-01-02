@@ -1,64 +1,102 @@
 from __future__ import annotations
+
 import numpy as np
 from typing import Callable
 
 from utils import clamp_vec_np, rand_vec_in_bounds_np, init_history
 
-# ================================
-# GA real-coded (funcional) - NumPy
-# ================================
+# Intentamos importar el módulo cultural (para que GA no duplique lógica)
+try:
+    from cultural import BeliefSpace, CulturalConfig
+except Exception:
+    BeliefSpace = None
+    CulturalConfig = None
+
+
 def ga(objective: Callable, bounds: np.ndarray,
        max_iters: int, pop_size: int, seed: int | None = None,
        pc: float = 0.9, pm: float = 0.05, elitism: int = 1,
        tournament_k: int = 3, blx_alpha: float = 0.3,
        sigma_frac: float = 0.1,
+
+       # ===== Cultural toggle + params (desde JSON) =====
+       use_cultural: bool = False,
+       # Opción 1 (recomendada): pasar un dict cultural {"elite_frac":..., "p_inf":..., ...}
+       cultural: dict | None = None,
+       # Opción 2 (compat): pasar params sueltos (por si no usas dict)
+       cultural_elite_frac: float = 0.10,
+       cultural_p_inf: float = 0.25,
+       cultural_beta: float = 0.15,
+       cultural_ema: float = 0.30,
+       cultural_min_width_frac: float = 0.05,
+       # ================================================
+
        log_positions: bool = False, log_every: int = 1):
-    """ Algoritmo Genético (GA) para variables reales, versión NumPy. """
-    
-    # 1. Inicialización
-    # -------------------
+    """Algoritmo Genético (GA) para variables reales, versión NumPy (vectorizada).
+       Si use_cultural=True, usa BeliefSpace externo (modular) para:
+         - Acceptance: belief.accept(pop, fit)
+         - Influence: belief.influence_batch(children, rng)
+    """
+
+    # 1) Inicialización
     rng = np.random.default_rng(seed)
     dim = bounds.shape[0]
     assert pop_size >= max(2, elitism + 1)
 
-    # Genera la población inicial
     pop = rand_vec_in_bounds_np(bounds, pop_size, rng)
-    
-    # *** OPTIMIZACIÓN ***
-    # Evalúa la población entera de una sola vez
-    fit = objective(pop)
-    
-    # Guarda el mejor individuo inicial
-    best_idx = np.argmin(fit)
-    best_x = pop[best_idx].copy()
-    best_f = fit[best_idx]
 
-    # Prepara el historial
+    # Evaluación vectorizada
+    fit = objective(pop)
+
+    best_idx = int(np.argmin(fit))
+    best_x = pop[best_idx].copy()
+    best_f = float(fit[best_idx])
+
+    # Historial
     hist = init_history(keys=("best_f", "mean_f", "best_x", "gbest"))
     if log_positions and dim == 2:
         hist["pos"] = []
-        
-    # Rangos de los límites (para la mutación)
-    ranges = bounds[:, 1] - bounds[:, 0]
 
-    # 2. Bucle principal (Iteraciones)
-    # ---------------------------------
+    ranges = bounds[:, 1] - bounds[:, 0]  # para mutación
+
+    # 1.1) Construcción modular del belief space (si se activa)
+    belief = None
+    if use_cultural:
+        if BeliefSpace is None or CulturalConfig is None:
+            raise ImportError(
+                "use_cultural=True pero no existe el módulo cultural. "
+                "Crea cultural/config.py y cultural/belief.py (exportados en cultural/__init__.py)."
+            )
+
+        cultural = cultural or {}
+        cfg = CulturalConfig(
+            elite_frac=float(cultural.get("elite_frac", cultural_elite_frac)),
+            p_inf=float(cultural.get("p_inf", cultural_p_inf)),
+            beta=float(cultural.get("beta", cultural_beta)),
+            ema=float(cultural.get("ema", cultural_ema)),
+            min_width_frac=float(cultural.get("min_width_frac", cultural_min_width_frac)),
+        )
+        belief = BeliefSpace(bounds=bounds, cfg=cfg)
+        # Acepta desde el estado inicial para poblar conocimiento desde la primera generación
+        belief.accept(pop, fit)
+
+    # 2) Bucle principal
     for it in range(max_iters):
+        # --- Cultural Acceptance (hook modular) ---
+        if belief is not None:
+            belief.accept(pop, fit)
+
         # --- Elitismo ---
-        # Los 'n' mejores individuos pasan directo a la siguiente generación
         elite_indices = np.argsort(fit)[:elitism]
         new_pop = pop[elite_indices].copy()
 
-        # Bucle para crear el resto de la nueva generación
+        # Crear nueva generación
         while len(new_pop) < pop_size:
-            # --- Selección por Torneo ---
-            # Elige k individuos al azar para 2 torneos (para 2 padres)
+            # --- Selección por Torneo (vectorizada para 2 padres) ---
             p_indices = rng.choice(pop_size, (2, tournament_k), replace=False)
-            # Compara el fitness de los seleccionados
             tourn_fit = fit[p_indices]
-            # Obtiene los índices de los 2 ganadores
             winner_indices = p_indices[np.arange(2), np.argmin(tourn_fit, axis=1)]
-            p1, p2 = pop[winner_indices] # Padre 1 y Padre 2
+            p1, p2 = pop[winner_indices]
 
             # --- Cruce BLX-alpha ---
             if rng.random() < pc:
@@ -66,44 +104,41 @@ def ga(objective: Callable, bounds: np.ndarray,
                 c1 = alpha[0] * p1 + (1 - alpha[0]) * p2
                 c2 = alpha[1] * p1 + (1 - alpha[1]) * p2
                 children = np.vstack([c1, c2])
-                clamp_vec_np(children, bounds, in_place=True) # Limita a los hijos
+                clamp_vec_np(children, bounds, in_place=True)
             else:
-                children = np.vstack([p1, p2]) # Los hijos son clones
+                children = np.vstack([p1, p2])
 
             # --- Mutación Gaussiana ---
-            # Crea una máscara de booleanos para ver qué genes mutar
             mutate_mask = rng.random((len(children), dim)) < pm
             if np.any(mutate_mask):
-                # Genera ruido gaussiano
                 mutations = rng.normal(0.0, sigma_frac * ranges, size=children.shape)
-                # Aplica el ruido solo donde la máscara es True
                 children[mutate_mask] += mutations[mutate_mask]
-                clamp_vec_np(children, bounds, in_place=True) # Limita de nuevo
-            
-            # Añade los hijos a la nueva población
+                clamp_vec_np(children, bounds, in_place=True)
+
+            # --- Cultural Influence (hook modular) ---
+            if belief is not None:
+                children = belief.influence_batch(children, rng)  # ya clampa internamente
+
             new_pop = np.vstack([new_pop, children])
 
-        # --- Reemplazo ---
-        pop = new_pop[:pop_size] # La nueva generación reemplaza a la antigua
-        
-        # *** OPTIMIZACIÓN ***
-        # Evalúa la nueva población entera de una sola vez
+        # Reemplazo
+        pop = new_pop[:pop_size]
+
+        # Evaluación vectorizada
         fit = objective(pop)
 
-        # --- Actualizar mejor global ---
-        current_best_idx = np.argmin(fit)
-        if fit[current_best_idx] < best_f:
-            best_f = fit[current_best_idx]
+        # Actualizar mejor global
+        current_best_idx = int(np.argmin(fit))
+        if float(fit[current_best_idx]) < best_f:
+            best_f = float(fit[current_best_idx])
             best_x = pop[current_best_idx].copy()
 
-        # --- Guardando en historial ---
+        # Historial
         hist["best_f"].append(best_f)
-        hist["mean_f"].append(np.mean(fit))
+        hist["mean_f"].append(float(np.mean(fit)))
         hist["best_x"].append(best_x.copy())
         hist["gbest"].append(best_x.copy())
         if log_positions and dim == 2 and (it % log_every == 0):
             hist["pos"].append(pop.copy())
 
-    # 3. Fin
-    # --------
     return best_x, best_f, hist

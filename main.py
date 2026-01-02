@@ -9,28 +9,33 @@ import numpy as np
 # --- IMPORTACIONES ---
 from algoritmos import ALGORITMOS_REGISTRADOS
 # Importamos también INFO_OBJETIVOS para saber los límites
-from objetivos import OBJETIVOS_REGISTRADOS, INFO_OBJETIVOS 
+from objetivos import OBJETIVOS_REGISTRADOS, INFO_OBJETIVOS
 from visualizar import (
     animate_convergencia, animate_swarm, animate_swarm_heatmap, animate_swarm_3d,
-    plot_convergencia, plot_boxplot, plot_convergence_average, 
+    plot_convergencia, plot_boxplot, plot_convergence_average,
     plot_comparacion_algoritmos
 )
 
 DEFAULT_CONFIG_PATHS = ["config.local.json", "config.json"]
 
+
 def load_config() -> dict:
     for name in DEFAULT_CONFIG_PATHS:
         p = Path(name)
         if p.exists():
-            try: return json.loads(p.read_text(encoding="utf-8"))
-            except Exception as e: raise RuntimeError(f"Error leyendo {name}: {e}")
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception as e:
+                raise RuntimeError(f"Error leyendo {name}: {e}")
     return {}
+
 
 def main():
     cfg = load_config()
     run = cfg.get("run", {})
     if not run:
-        print("[ERROR] No se encontró 'run' en config.json"); sys.exit(1)
+        print("[ERROR] No se encontró 'run' en config.json")
+        sys.exit(1)
 
     # --- Configuración Base ---
     base_dim = run.get("dim", 2)
@@ -38,13 +43,13 @@ def main():
     base_pop = run.get("pop", 50)
     base_seed = run.get("seed", None)
     n_runs = run.get("n_runs", 1)
-    
+
     plot = run.get("plot", False)
-    plot_individual = run.get("plot_individual", True) 
+    plot_individual = run.get("plot_individual", True)
     animate = run.get("animate", True)
     show_heatmap = run.get("show_heatmap", True)
     animation_type = run.get("animation_type", "2d")
-    
+
     heatmap_res = run.get("heatmap_res", 100)
     heatmap_levels = run.get("heatmap_levels", 20)
     cmap = run.get("cmap", "viridis")
@@ -52,7 +57,15 @@ def main():
 
     # --- Bounds Globales vs Auto ---
     # Si el usuario pone "auto", usaremos los del archivo objetivos.py
-    config_bounds_str = run.get("bounds", "auto") 
+    config_bounds_str = run.get("bounds", "auto")
+
+    # ===== Cultural global toggle (MODULAR) =====
+    # En el JSON solo va en: run.use_cultural = true/false
+    use_cultural_run = bool(run.get("use_cultural", False))
+
+    # Por ahora solo GA soporta cultural. Cuando lo agregues a otros, suma aquí.
+    CULTURAL_SUPPORTED = {"ga"}
+    # ==========================================
 
     obj_str = run.get("obj", "sphere")
     obj_names = [x.strip() for x in obj_str.split(',') if x.strip()]
@@ -64,16 +77,18 @@ def main():
     print(f"Algoritmos: {alg_names}")
     print(f"Objetivos : {obj_names}")
     print(f"Config Global: Runs={n_runs}, Pop={base_pop}, Iters={base_iters}")
-    print(f"Modo Bounds  : {config_bounds_str}\n")
+    print(f"Modo Bounds  : {config_bounds_str}")
+    print(f"Modo Cultural: {use_cultural_run} (soportado por {sorted(CULTURAL_SUPPORTED)})\n")
 
     for i_obj, obj_name in enumerate(obj_names):
         objective = OBJETIVOS_REGISTRADOS.get(obj_name)
         if not objective:
-            print(f"[WARN] Objetivo '{obj_name}' no encontrado."); continue
-            
+            print(f"[WARN] Objetivo '{obj_name}' no encontrado.")
+            continue
+
         # --- LÓGICA DE METADATOS (DIMENSIÓN Y BOUNDS) ---
         info = INFO_OBJETIVOS.get(obj_name, {})
-        
+
         # 1. Determinar Dimensión
         # Si la función es FIJA en 2D (ej: himmelblau), forzamos dim=2
         if "fixed_dim" in info:
@@ -83,7 +98,7 @@ def main():
             # Si no es fija, usamos la del config
             current_dim = base_dim
             dim_msg = f"{current_dim} (Config)"
-            
+
         # 2. Determinar Bounds
         if config_bounds_str == "auto":
             # Usar los bounds estándar de la función
@@ -102,43 +117,52 @@ def main():
                 bounds = np.array([[b_min, b_max]] * current_dim)
                 bounds_msg = f"Manual [{b_min}, {b_max}]"
             except:
-                print("[ERROR] Bounds manuales mal formados."); sys.exit(1)
+                print("[ERROR] Bounds manuales mal formados.")
+                sys.exit(1)
 
         print(f"\n>>> PROCESANDO: {obj_name.upper()} ({i_obj+1}/{len(obj_names)})")
         print(f"    Dimensión: {dim_msg} | Límites: {bounds_msg}")
-        
+
         comparative_curves = {}
-        
+
         for alg_name in alg_names:
             alg_fn = ALGORITMOS_REGISTRADOS.get(alg_name)
-            if not alg_fn: continue
-            
+            if not alg_fn:
+                continue
+
             alg_params = cfg.get(alg_name, {}).copy()
-            
+
             print(f"  -> {alg_name.upper()}...", end="")
-            
-            run_fitnesses = []        
-            all_histories = []        
-            best_run_history = None   
+
+            run_fitnesses = []
+            all_histories = []
+            best_run_history = None
             best_run_val = float("inf")
-            
+
             start_time = time.time()
-            
+
             for r in range(n_runs):
                 current_seed = (base_seed + r) if base_seed is not None else None
                 current_params = alg_params.copy()
-                
+
+                # ===== Inyección global del toggle cultural =====
+                # Solo se manda si el algoritmo lo soporta (evita errores de kwargs)
+                if alg_name in CULTURAL_SUPPORTED:
+                    current_params["use_cultural"] = use_cultural_run
+                # ==============================================
+
                 if animate and plot_individual:
                     current_params["log_positions"] = True
                     current_params["log_every"] = 1
-                
+
                 bx, bf, hist = alg_fn(
                     objective=objective, bounds=bounds, max_iters=base_iters,
                     pop_size=base_pop, seed=current_seed, **current_params
                 )
-                
+
                 run_fitnesses.append(bf)
-                if "best_f" in hist: all_histories.append(hist["best_f"])
+                if "best_f" in hist:
+                    all_histories.append(hist["best_f"])
                 if bf < best_run_val:
                     best_run_val = bf
                     best_run_history = hist
@@ -165,31 +189,43 @@ def main():
                 if current_dim == 2 and "pos" in best_run_history:
                     def run_2d():
                         if show_heatmap:
-                            animate_swarm_heatmap(best_run_history, objective, bounds, 
-                                                title=f"{alg_name.upper()}-{obj_name}", 
-                                                res=heatmap_res, levels=heatmap_levels, cmap=cmap, save_path=save_path)
+                            animate_swarm_heatmap(
+                                best_run_history, objective, bounds,
+                                title=f"{alg_name.upper()}-{obj_name}",
+                                res=heatmap_res, levels=heatmap_levels, cmap=cmap, save_path=save_path
+                            )
                         else:
                             animate_swarm(best_run_history, bounds, title=f"{alg_name.upper()}-{obj_name}", save_path=save_path)
-                    
-                    def run_3d():
-                        animate_swarm_3d(best_run_history, objective, bounds, 
-                                         title=f"{alg_name.upper()}-{obj_name} (3D)", res=heatmap_res, cmap=cmap, save_path=save_path)
 
-                    if animation_type == "3d": run_3d()
-                    elif animation_type == "2d": run_2d()
-                    elif animation_type == "both": run_3d(); run_2d()
-                    else: run_2d()
+                    def run_3d():
+                        animate_swarm_3d(
+                            best_run_history, objective, bounds,
+                            title=f"{alg_name.upper()}-{obj_name} (3D)", res=heatmap_res, cmap=cmap, save_path=save_path
+                        )
+
+                    if animation_type == "3d":
+                        run_3d()
+                    elif animation_type == "2d":
+                        run_2d()
+                    elif animation_type == "both":
+                        run_3d()
+                        run_2d()
+                    else:
+                        run_2d()
                 else:
                     animate_convergencia(best_run_history, title=f"Conv. {alg_name.upper()} - {obj_name}", save_path=save_path)
 
         # Gráfica Comparativa Final (Siempre si plot=True)
         if plot and len(comparative_curves) > 0:
             if len(comparative_curves) > 1 or not plot_individual:
-                plot_comparacion_algoritmos(comparative_curves, 
-                    title=f"Comparativa: {', '.join(comparative_curves.keys())} en {obj_name.upper()}", 
-                    save_path=save_path)
-            
+                plot_comparacion_algoritmos(
+                    comparative_curves,
+                    title=f"Comparativa: {', '.join(comparative_curves.keys())} en {obj_name.upper()}",
+                    save_path=save_path
+                )
+
     print("\n=== FIN ===")
+
 
 if __name__ == "__main__":
     main()
