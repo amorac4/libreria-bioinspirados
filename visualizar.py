@@ -16,6 +16,7 @@ def plot_convergencia(history: dict[str, list], title: str = "Convergencia"):
     if "mean_f" in history:
         plt.plot(history["mean_f"], label="mean_f", linestyle=":", alpha=0.8)
     plt.title(title)
+ 
     plt.xlabel("iteración")
     plt.ylabel("fitness")
     plt.legend()
