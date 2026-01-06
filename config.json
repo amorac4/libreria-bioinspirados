@@ -1,14 +1,17 @@
 
 {
   "run": {
-    "alg": "ga",
-    "obj": " rastrigin ",
-    "n_runs": 1,
+    "alg": "ga, pso, de, aco, bat, cso, c_so, fwa, gwo, wsa, mean_pso",
+    "obj": "sphere",
+
+    "n_runs": 25,
     "dim": 10,
     "bounds": "auto", 
     "iters": 200,
     "pop": 50,
-    "seed": 4,
+
+    
+    "seed": null,
     "animate": true,
     "plot": true,
     "animation_type": "both",
@@ -17,9 +20,11 @@
     "heatmap_levels": 30,
     "cmap": "viridis",
     "save_path": null,
-    "plot_individual": true,
 
-    "use_cultural": false
+    "plot_individual": false,
+
+    "use_cultural": true
+
   },
 
   "pso": { "w": 0.72, "c1": 1.49, "c2": 1.49, "vmax": null },

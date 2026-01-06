@@ -3,7 +3,7 @@ from .config import CulturalConfig
 
 class BeliefSpace:
     """
-    Belief Space genérico para optimización continua.
+    Belief Space para optimización continua.
     - Situational knowledge: mejor ejemplar observado (best_x)
     - Normative knowledge: intervalos por gen (norm_lb/norm_ub)
     """
@@ -59,7 +59,9 @@ class BeliefSpace:
             self.norm_ub = np.minimum(self.norm_ub, self.bounds[:, 1])
 
     def influence_vec(self, x: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+
         """Influence para un vector (candidato/partícula)."""
+        
         y = x.copy()
 
         # 1) Atracción a mejor ejemplar
@@ -75,7 +77,9 @@ class BeliefSpace:
         return np.clip(y, self.bounds[:, 0], self.bounds[:, 1])
 
     def influence_batch(self, X: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+
         """Influence para lote (población / partículas)."""
+
         Y = X.copy()
 
         if self.best_x is not None and self.cfg.beta != 0:
