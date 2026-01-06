@@ -1,0 +1,57 @@
+MANUAL DE LA LIBRERÍA-BIOINSPIRADOS
+Por Adolfo Mora Córdova
+
+
+1) Instalación del entorno virtual
+
+- Crear el entorno virtual.
+- Instalar las dependencias desde requirements.txt.
+
+
+2) Modificar config.json
+
+- "alg": Seleccionar el/los algoritmos a ejecutar en el experimento.
+  Opciones: ga, pso, de, aco, bat, cso, c_so, fwa, gwo, wsa, mean_pso
+
+- "obj": Seleccionar la(s) función(es) objetivo a ejecutar en el experimento.
+  Opciones: sphere, ackley, rastrigin, griewank, rosenbrock, schwefel, himmelblau, beale,
+            booth, camel3, easom, michalewicz2d, sum_squares, weierstrass, levy, zakharov,
+            bukin6, matyas, threehumpcamel, michalewicz
+
+- "n_runs": Número de corridas que realizará el experimento.
+
+- "dim": Número de dimensiones en las que se ejecutará el experimento.
+  Nota: algunas funciones solo soportan 2D por defecto y no respetarán esta configuración.
+
+- "bounds": Límites de búsqueda de las funciones.
+  Puede modificarse para límites específicos; en "auto" usa los valores predefinidos para cada función.
+
+- "iters": Número de iteraciones para cada algoritmo.
+
+- "pop": Tamaño de la población (para los algoritmos que aplican).
+
+- "seed": Semilla del algoritmo. En null se usa una semilla aleatoria.
+
+- "animate": Opción para animar.
+  Opciones: true / false
+
+- "plot": Opción para graficar.
+  Opciones: true / false
+
+- "animation_type": Tipo de animación.
+  Opciones: 2d, 3d, both
+
+- "save_path": Ruta donde se guardarán las gráficas.
+
+- "plot_individual": Opción para generar gráficas individuales.
+  Nota: false suele ser mejor si quieres una sola gráfica de convergencia con todos los algoritmos juntos.
+  Opciones: true / false
+
+- "use_cultural": Opción para ejecutar (cuando aplique) la versión con algoritmo cultural.
+  Si el algoritmo no lo soporta, se ejecuta normalmente.
+  Opciones: true / false
+
+
+3) Ejecutar el experimento
+
+python .\main.py

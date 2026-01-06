@@ -1,0 +1,17 @@
+# LIBRERÍA-BIOINSPIRADOS
+
+**Autor:** Adolfo Mora Córdova
+
+Este repositorio permite ejecutar experimentos con algoritmos bioinspirados
+
+---
+## Requisitos
+
+- Python (recomendado: 3.10+)
+- Dependencias definidas en `requirements.txt`
+
+---
+
+## Uso 
+
+-En manual.txt

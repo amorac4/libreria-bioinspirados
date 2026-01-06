@@ -8,9 +8,8 @@
     "bounds": "auto", 
     "iters": 200,
     "pop": 50,
-
-    
     "seed": null,
+
     "animate": true,
     "plot": true,
     "animation_type": "both",
