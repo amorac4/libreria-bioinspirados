@@ -1,4 +1,3 @@
-
 {
   "run": {
     "alg": "ga, pso, de, aco, bat, cso, c_so, fwa, gwo, wsa, mean_pso",
@@ -47,5 +46,3 @@
 
 
 }
-
- 
